@@ -82,6 +82,8 @@ jobs:
 
     - name: Setup NSIS
       uses: nsis-dev/setup-nsis@v1
+      # Continue even if setup fails, to allow debugging or fallback if possible (though nsis is required)
+      continue-on-error: true
       with:
         nsis-version: 3.09
 
@@ -102,7 +104,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-13
+          - os: macos-15-large
             arch-name: 'Intel'
             artifact-suffix: 'x86_64'
           - os: macos-14
@@ -278,3 +280,11 @@ jobs:
         platforms: linux/amd64,linux/arm64,linux/386
         push: false
         tags: quicksend:local
+        outputs: type=tar,dest=/tmp/docker-image.tar
+
+    - name: Upload Docker Artifact
+      if: env.DOCKER_USERNAME == ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-image
+        path: /tmp/docker-image.tar
