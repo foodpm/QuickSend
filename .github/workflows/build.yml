@@ -290,17 +290,17 @@ jobs:
       with:
         context: quicksend/quicksend/quicksend
         file: quicksend/quicksend/quicksend/Dockerfile
-        platforms: linux/amd64,linux/arm64,linux/386
+        platforms: linux/amd64
         push: false
         tags: quicksend:local
-        outputs: type=tar,dest=/tmp/docker-image.tar
+        outputs: type=tar,dest=/tmp/quicksend-image-${{ env.VERSION_TAG }}.tar
 
     - name: Upload Docker Artifact
       if: env.DOCKER_USERNAME == ''
       uses: actions/upload-artifact@v4
       with:
-        name: docker-image
-        path: /tmp/docker-image.tar
+        name: docker-image-${{ env.VERSION_TAG }}
+        path: /tmp/quicksend-image-${{ env.VERSION_TAG }}.tar
 
     - name: Export Docker manifest
       if: env.DOCKER_USERNAME != ''
@@ -359,7 +359,7 @@ jobs:
     - name: Download Docker Image Tar
       uses: actions/download-artifact@v4
       with:
-        name: docker-image
+        name: docker-image-${{ github.ref_name }}
         path: artifacts/docker
       continue-on-error: true
 
@@ -371,7 +371,7 @@ jobs:
         cp artifacts/macos/x86_64/*.dmg release/ || true
         cp artifacts/macos/arm64/*.dmg release/ || true
         cp artifacts/docker/docker-manifest.json release/ || true
-        cp artifacts/docker/docker-image.tar release/ || true
+        cp artifacts/docker/*.tar release/ || true
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
