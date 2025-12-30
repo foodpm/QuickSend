@@ -1,0 +1,166 @@
+﻿==========================================
+QuickSend - Build x86 (32-bit) Version
+==========================================
+
+Note: To build a 32-bit executable, you MUST have a 32-bit Python installed.
+
+
+Using Python: C:\Python38\python.exe
+Checking architecture...
+Architecture: 32-bit
+
+[1/4] Installing dependencies...
+Requirement already satisfied: pip in c:\python38\lib\site-packages (25.0.1)
+
+[2/4] Building executable...
+Updating index.build.html from dist...
+.\build_x86.bat : 684 INFO: PyInstaller: 6.3.0
+所在位置 行:1 字符: 1
++ .\build_x86.bat 2>&1 | Out-File -FilePath build_log.txt -Encoding utf ...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (684 INFO: PyInstaller: 6.3.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+684 INFO: Python: 3.8.10
+701 INFO: Platform: Windows-10-10.0.19045-SP0
+702 INFO: wrote E:\code\quick\quicksend\quicksend\quicksend\QuickSend.spec
+704 INFO: Removing temporary files and cleaning cache in C:\Users\Administrator\AppData\Local\pyinstaller
+3429 INFO: Extending PYTHONPATH with paths
+['E:\\code\\quick\\quicksend\\quicksend\\quicksend']
+4328 INFO: Appending 'datas' from .spec
+4350 INFO: checking Analysis
+4350 INFO: Building Analysis because Analysis-00.toc is non existent
+4350 INFO: Initializing module dependency graph...
+4352 INFO: Caching module graph hooks...
+4420 INFO: Analyzing base_library.zip ...
+5861 INFO: Loading module hook 'hook-heapq.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+6337 INFO: Loading module hook 'hook-encodings.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+8310 INFO: Loading module hook 'hook-pickle.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+9533 INFO: Caching module dependency graph...
+9755 INFO: Running Analysis Analysis-00.toc
+9755 INFO: Looking for Python shared library...
+9808 INFO: Using Python shared library: C:\Python38\python38.dll
+9808 INFO: Analyzing E:\code\quick\quicksend\quicksend\quicksend\app.py
+10087 INFO: Loading module hook 'hook-difflib.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+10950 INFO: Loading module hook 'hook-multiprocessing.util.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+11284 INFO: Loading module hook 'hook-xml.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+12983 INFO: Loading module hook 'hook-platform.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+13211 INFO: Loading module hook 'hook-sysconfig.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+13769 INFO: Loading module hook 'hook-importlib_metadata.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+13996 INFO: Loading module hook 'hook-jinja2.py' from 'C:\\Python38\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+...
+14985 INFO: Loading module hook 'hook-webview.py' from 'C:\\Python38\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks
+'...
+15570 INFO: Processing pre-safe import module hook gi from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_imp
+ort_module\\hook-gi.py'.
+15719 INFO: Loading module hook 'hook-clr.py' from 'C:\\Python38\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'...
+15745 INFO: Loading module hook 'hook-clr_loader.py' from 'C:\\Python38\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdho
+oks'...
+15885 INFO: Loading module hook 'hook-pycparser.py' from 'C:\\Python38\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhoo
+ks'...
+16688 INFO: Loading module hook 'hook-setuptools.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+22222 INFO: Processing pre-safe import module hook distutils from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\pre_s
+afe_import_module\\hook-distutils.py'.
+22222 INFO: Processing pre-find module path hook distutils from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\pre_fin
+d_module_path\\hook-distutils.py'.
+22734 INFO: Loading module hook 'hook-distutils.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+22765 INFO: Loading module hook 'hook-distutils.util.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+22915 INFO: Loading module hook 'hook-packaging.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+24189 INFO: Loading module hook 'hook-pkg_resources.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+26453 INFO: Loading module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'..
+.
+26573 INFO: Analyzing hidden import 'flask.__main__'
+26575 INFO: Analyzing hidden import 'flask.views'
+26581 INFO: Analyzing hidden import 'werkzeug.middleware.dispatcher'
+26584 INFO: Analyzing hidden import 'werkzeug.middleware.http_proxy'
+26594 INFO: Analyzing hidden import 'werkzeug.middleware.lint'
+26613 INFO: Analyzing hidden import 'werkzeug.middleware.profiler'
+26711 INFO: Analyzing hidden import 'werkzeug.middleware.proxy_fix'
+26718 INFO: Analyzing hidden import 'werkzeug.testapp'
+26729 INFO: Processing module hooks...
+26817 WARNING: Hidden import "pkg_resources._vendor.jaraco.functools" not found!
+26817 WARNING: Hidden import "pkg_resources._vendor.jaraco.context" not found!
+26818 WARNING: Hidden import "pkg_resources._vendor.jaraco.text" not found!
+26852 INFO: Loading module hook 'hook-setuptools.msvc.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+29096 INFO: Loading module hook 'hook-setuptools._distutils.command.check.py' from 'C:\\Python38\\lib\\site-packages\\PyInstal
+ler\\hooks'...
+29402 INFO: Loading module hook 'hook-distutils.command.check.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'.
+..
+29811 INFO: Loading module hook 'hook-_tkinter.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+29812 INFO: checking Tree
+29812 INFO: Building Tree because Tree-00.toc is non existent
+29812 INFO: Building Tree Tree-00.toc
+29899 INFO: checking Tree
+29899 INFO: Building Tree because Tree-01.toc is non existent
+29900 INFO: Building Tree Tree-01.toc
+29910 INFO: checking Tree
+29911 INFO: Building Tree because Tree-02.toc is non existent
+29911 INFO: Building Tree Tree-02.toc
+29960 INFO: Performing binary vs. data reclassification (1055 entries)
+55285 INFO: Looking for ctypes DLLs
+55397 INFO: Analyzing run-time hooks ...
+55406 INFO: Including run-time hook 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgres.py'
+55413 INFO: Including run-time hook 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_multiprocessing.py
+'
+55417 INFO: Including run-time hook 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgutil.py'
+55421 INFO: Processing pre-find module path hook _pyi_rth_utils from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\pr
+e_find_module_path\\hook-_pyi_rth_utils.py'.
+55423 INFO: Loading module hook 'hook-_pyi_rth_utils.py' from 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks'...
+55424 INFO: Including run-time hook 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py'
+55426 INFO: Including run-time hook 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_setuptools.py'
+55428 INFO: Including run-time hook 'C:\\Python38\\lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth__tkinter.py'
+55521 INFO: Looking for dynamic libraries
+60472 INFO: Extra DLL search directories (AddDllDirectory): []
+60472 INFO: Extra DLL search directories (PATH): []
+64378 INFO: Warnings written to E:\code\quick\quicksend\quicksend\quicksend\build\QuickSend\warn-QuickSend.txt
+64625 INFO: Graph cross-reference written to E:\code\quick\quicksend\quicksend\quicksend\build\QuickSend\xref-QuickSend.html
+64720 INFO: checking PYZ
+64720 INFO: Building PYZ because PYZ-00.toc is non existent
+64720 INFO: Building PYZ (ZlibArchive) E:\code\quick\quicksend\quicksend\quicksend\build\QuickSend\PYZ-00.pyz
+66539 INFO: Building PYZ (ZlibArchive) E:\code\quick\quicksend\quicksend\quicksend\build\QuickSend\PYZ-00.pyz completed succes
+sfully.
+66664 INFO: checking PKG
+66664 INFO: Building PKG because PKG-00.toc is non existent
+66664 INFO: Building PKG (CArchive) QuickSend.pkg
+66722 INFO: Building PKG (CArchive) QuickSend.pkg completed successfully.
+66725 INFO: Bootloader C:\Python38\lib\site-packages\PyInstaller\bootloader\Windows-32bit-intel\runw.exe
+66725 INFO: checking EXE
+66725 INFO: Building EXE because EXE-00.toc is non existent
+66725 INFO: Building EXE from EXE-00.toc
+66725 INFO: Copying bootloader EXE to E:\code\quick\quicksend\quicksend\quicksend\build\QuickSend\QuickSend.exe
+66890 INFO: Copying icon to EXE
+67031 INFO: Copying 0 resources to EXE
+67031 INFO: Embedding manifest in EXE
+67170 INFO: Appending PKG archive to EXE
+67176 INFO: Fixing EXE headers
+67873 INFO: Building EXE from EXE-00.toc completed successfully.
+67901 INFO: checking COLLECT
+67901 INFO: Building COLLECT because COLLECT-00.toc is non existent
+67902 INFO: Removing dir E:\code\quick\quicksend\quicksend\quicksend\dist\QuickSend
+68087 INFO: Building COLLECT COLLECT-00.toc
+69809 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+
+[3/4] Downloading VC++ Redistributable (x86)...
+
+[4/4] Packaging installer...
+Processing config: D:\NSIS\nsisconf.nsh
+Processing script file: "installer_x86.nsi" (UTF8)
+
+Processed 1 file, writing output (x86-unicode):
+
+Output: "E:\code\quick\quicksend\quicksend\quicksend\dist\QuickSend_Setup_x86_v6.0.exe"
+Install: 4 pages (256 bytes), 3 sections (2 required) (6216 bytes), 1547 instructions (43316 bytes), 1310 strings (31398 bytes), 2 language tables (612 bytes).
+Uninstall: 1 page (128 bytes), 1 section (2072 bytes), 47 instructions (1316 bytes), 120 strings (3220 bytes), 2 language tables (452 bytes).
+Datablock optimizer saved 27842 bytes (~0.1%).
+
+Using zlib compression.
+
+EXE header size:              103936 / 39936 bytes
+Install code:                  18860 / 82262 bytes
+Install data:               26775066 / 40293612 bytes
+Uninstall code+data:           65711 / 65775 bytes
+CRC (0xDC5DF8E6):                  4 / 4 bytes
+
+Total size:                 26963577 / 40481589 bytes (66.6%)
+
+Success! x86 Installer created at: dist\QuickSend_Setup_x86_v6.0.exe

@@ -1,0 +1,12 @@
+node_modules/
+static/node_modules/
+dist/
+build/
+QuickSend/
+*.dmg
+*.exe
+.git/
+.gitignore
+.DS_Store
+__pycache__/
+*.pyc

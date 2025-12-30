@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  quicksend:
+    # Build from the current directory
+    build: .
+    container_name: quicksend
+    
+    # Map port 8000 to the host
+    ports:
+      - "8000:8000"
+    
+    # Persist data
+    volumes:
+      # Map uploads directory to store files
+      - ./uploads:/app/uploads
+      # Map data directory to store configuration, metadata, and user info
+      # Note: By default, the container runs as root, so data is in /root/.local/share/QuickSend
+      - ./data:/root/.local/share/QuickSend
+    
+    environment:
+      - HEADLESS=1
+      - PORT=8000
+      # If you want to specify a custom upload folder or other env vars
+      # - UPLOAD_FOLDER=/app/uploads
+    
+    restart: unless-stopped

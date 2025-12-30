@@ -1,0 +1,184 @@
+name: Build and Package
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows ${{ matrix.arch }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, x86]
+        include:
+          - arch: x64
+            python-arch: 'x64'
+            nsi-script: 'QuickSend.nsi'
+            artifact-suffix: 'win64'
+          - arch: x86
+            python-arch: 'x86'
+            nsi-script: 'installer_x86.nsi'
+            artifact-suffix: 'win32'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Build Frontend
+      working-directory: quicksend/quicksend/quicksend/static
+      run: |
+        npm install
+        npm run build
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        architecture: ${{ matrix.python-arch }}
+
+    - name: Install Dependencies
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        pip install flask "pyinstaller>=6.0" werkzeug pywebview pillow jaraco.text pythonnet clr_loader
+        pip install platformdirs
+
+    - name: Generate Icon
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        python -c "from PIL import Image; import os; img_path='logo2.png' if os.path.exists('logo2.png') else 'logo.png'; img=Image.open(img_path) if os.path.exists(img_path) else None; img.save('logo.ico', sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)]) if img else print('Logo not found, skipping icon generation')"
+
+    - name: Prepare Static Assets
+      working-directory: quicksend/quicksend/quicksend
+      shell: bash
+      run: |
+        cp static/dist/index.html static/index.build.html
+
+    - name: Run PyInstaller
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all platformdirs --icon=logo.ico app.py
+
+    - name: Post-Build Copy (Fix missing files)
+      working-directory: quicksend/quicksend/quicksend
+      shell: bash
+      run: |
+        # Copy missing assets (logic from bat file)
+        if [ -d "dist/QuickSend/_internal" ]; then
+            mkdir -p "dist/QuickSend/_internal/static/dist"
+            cp -r static/dist/* "dist/QuickSend/_internal/static/dist/"
+        else
+            mkdir -p "dist/QuickSend/static/dist"
+            cp -r static/dist/* "dist/QuickSend/static/dist/"
+        fi
+        if [ -f "logo.ico" ]; then
+            cp logo.ico dist/QuickSend/
+        fi
+
+    - name: Setup NSIS
+      uses: nsis-dev/setup-nsis@v1
+      with:
+        nsis-version: 3.09
+
+    - name: Run NSIS
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        makensis /INPUTCHARSET UTF8 ..\..\installer\${{ matrix.nsi-script }}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: QuickSend-Windows-${{ matrix.arch }}
+        path: quicksend/installer/*.exe
+
+  build-macos:
+    name: Build macOS ${{ matrix.arch-name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-13
+            arch-name: 'Intel'
+            artifact-suffix: 'x86_64'
+          - os: macos-14
+            arch-name: 'Apple Silicon'
+            artifact-suffix: 'arm64'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Build Frontend
+      working-directory: quicksend/quicksend/quicksend/static
+      run: |
+        npm install
+        npm run build
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Dependencies
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Install System Dependencies
+      run: |
+        npm install -g appdmg
+
+    - name: Build App
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        chmod +x build_mac.sh
+        ./build_mac.sh
+        # Rename dmg to include architecture
+        if [ -f "dist/QuickSend-mac.dmg" ]; then
+          mv "dist/QuickSend-mac.dmg" "dist/QuickSend-mac-${{ matrix.artifact-suffix }}.dmg"
+        fi
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: QuickSend-macOS-${{ matrix.artifact-suffix }}
+        path: quicksend/quicksend/quicksend/dist/QuickSend-mac-${{ matrix.artifact-suffix }}.dmg
+
+  build-docker:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      if: github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME != ''
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: quicksend/quicksend/quicksend
+        file: quicksend/quicksend/quicksend/Dockerfile
+        platforms: linux/amd64,linux/arm64,linux/386
+        push: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME != '' }}
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/quicksend:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/quicksend:${{ github.sha }}

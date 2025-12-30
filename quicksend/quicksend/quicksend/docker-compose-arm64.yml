@@ -1,0 +1,24 @@
+version: '3'
+
+services:
+  quicksend:
+    # 使用导入的 ARM64 镜像 (适用于 NAS/Mac/树莓派)
+    image: quicksend:arm64
+    container_name: quicksend
+    
+    # 端口映射: 左边是宿主机端口(可修改)，右边是容器端口(固定8000)
+    ports:
+      - "8000:8000"
+    
+    # 数据持久化
+    volumes:
+      # 上传文件存储目录
+      - ./uploads:/app/uploads
+      # 配置文件和元数据存储目录
+      - ./data:/root/.local/share/QuickSend
+    
+    environment:
+      - HEADLESS=1
+      - PORT=8000
+    
+    restart: unless-stopped

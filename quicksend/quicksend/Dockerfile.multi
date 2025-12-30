@@ -1,0 +1,32 @@
+FROM node:20-alpine AS frontend-builder
+WORKDIR /src
+ARG FRONT_BUILD_ID=dev
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+COPY static/ /src/static/
+# 打印一下，保证这一层的缓存会因为 FRONT_BUILD_ID 的变化而失效
+RUN echo "FRONT_BUILD_ID=$FRONT_BUILD_ID" && cd /src/static && (npm ci --registry=$NPM_REGISTRY || npm ci) && npm run build
+
+FROM python:3.11-slim AS backend
+ARG FRONT_BUILD_ID=dev
+ARG BUILD_VERSION=dev
+LABEL org.opencontainers.image.version=$BUILD_VERSION
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HEADLESS=1 \
+    PORT=5000 \
+    PIP_DEFAULT_TIMEOUT=180
+WORKDIR /app
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt /app/requirements.txt
+RUN python -m pip install -U pip setuptools wheel && \
+    (python -m pip install --no-cache-dir --timeout 180 -i $PIP_INDEX_URL -r /app/requirements.txt || \
+     python -m pip install --no-cache-dir --timeout 180 -i https://pypi.org/simple -r /app/requirements.txt)
+COPY . /app
+COPY --from=frontend-builder /src/static/dist /app/static/dist
+COPY --from=frontend-builder /src/static/index.build.html /app/static/index.build.html
+RUN sed -i "s|/static/script.js|/static/script.js?v=${FRONT_BUILD_ID}|g" /app/static/index.build.html || true
+RUN rm -rf /app/static/.vite || true
+EXPOSE 5000
+RUN mkdir -p /app/uploads
+CMD ["python", "app.py"]

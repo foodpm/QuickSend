@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  quicksend:
+    platform: linux/arm64
+    build:
+      context: .
+      dockerfile: Dockerfile.multi
+      args:
+        PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+        NPM_REGISTRY: https://registry.npmmirror.com
+        BUILD_VERSION: "v2025-12-03-04"
+        FRONT_BUILD_ID: "v2025-12-03-04"
+    container_name: quicksend
+    environment:
+      - PORT=5000
+      - HEADLESS=1
+      # 手动指定局域网 IP (解决 Docker 网络隔离导致显示 172.x.x.x 的问题)
+      # 请取消下方注释，并将 192.168.x.x 替换为您 NAS 的真实局域网 IP
+      # - HOST_IP=192.168.x.x
+    ports:
+      - "8080:5000"
+    volumes:
+      - quicksend_data:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  quicksend_data:
