@@ -1,5 +1,5 @@
 # Stage 1: Build Frontend
-FROM node:18-alpine as frontend-builder
+FROM --platform=$BUILDPLATFORM node:18-alpine as frontend-builder
 
 WORKDIR /app-frontend
 
@@ -21,6 +21,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000
 
 WORKDIR /app
+
+# Install system dependencies for potential compilation (e.g. Pillow on 32-bit/ARM)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libjpeg-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
