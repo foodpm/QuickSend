@@ -81,11 +81,7 @@ jobs:
         fi
 
     - name: Setup NSIS
-      uses: nsis-dev/setup-nsis@v1
-      # Continue even if setup fails, to allow debugging or fallback if possible (though nsis is required)
-      continue-on-error: true
-      with:
-        nsis-version: 3.09
+      run: choco install nsis
 
     - name: Run NSIS
       working-directory: quicksend/quicksend/quicksend
@@ -104,12 +100,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-15-large
+          - os: macos-14
             arch-name: 'Intel'
             artifact-suffix: 'x86_64'
+            python-arch: 'x64'
           - os: macos-14
             arch-name: 'Apple Silicon'
             artifact-suffix: 'arm64'
+            python-arch: 'arm64'
     steps:
     - uses: actions/checkout@v4
 
@@ -128,6 +126,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        architecture: ${{ matrix.python-arch }}
 
     - name: Install Dependencies
       working-directory: quicksend/quicksend/quicksend
