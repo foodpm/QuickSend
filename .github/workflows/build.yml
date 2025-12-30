@@ -149,8 +149,17 @@ jobs:
              cp maclogo.png ../maclogo.png
           fi
         fi
+        
+        # Install create-dmg for reliable DMG creation
+        brew install create-dmg
+        
         chmod +x build_mac.sh
+        # Modify build_mac.sh to use create-dmg instead of appdmg (which often fails in CI)
+        # We replace the appdmg block with create-dmg
+        sed -i '' 's/npx appdmg dmg.json "dist\/${NAME}-mac.dmg"/create-dmg --volname "${NAME}" --volicon "logo2_.icns" --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "${NAME}.app" 200 190 --hide-extension "${NAME}.app" --app-drop-link 600 185 "dist\/${NAME}-mac.dmg" "dist\/${NAME}.app"/' build_mac.sh
+        
         ./build_mac.sh
+        
         # Rename dmg to include architecture
         if [ -f "dist/QuickSend-mac.dmg" ]; then
           mv "dist/QuickSend-mac.dmg" "dist/QuickSend-mac-${{ matrix.artifact-suffix }}.dmg"
