@@ -108,51 +108,64 @@
 
 ---
 
-## 📎 附：离线安装
+# QuickSend 离线导入 NAS Docker 教程
 
-> 这是一个无需联网、无需构建代码即可部署的 QuickSend 版本。
+本教程适用于 NAS（群晖/威联通/绿联等）、Linux 服务器或个人电脑，采用“离线镜像 + Compose”方式部署，无需拉取在线镜像。
 
-### 📂 文件清单
-请确保你已经收到了以下文件：
-1. `quicksend_v6.2_arm64.tar`（镜像文件）
-2. `docker-compose.yml`（配置文件）
+## 准备文件
+- 从 GitHub Releases 下载对应版本的镜像包，示例：`quicksend-image-v1.0.3.tar`
+- 代码仓库根目录的 `docker-compose.yml`（已默认使用本地镜像 `quicksend:local`）
 
-### 🚀 安装步骤
-**第一步：上传文件**  
-在你的 NAS 或服务器上创建一个新文件夹（例如 `quicksend`），将上述两个文件上传到该文件夹中。
+## 上传到 NAS
+- 在 NAS 上创建一个目录（例如 `/volume1/quicksend` 或任意共享目录）
+- 将镜像包 `.tar` 与 `docker-compose.yml` 一并上传到该目录
 
-**第二步：导入镜像**  
-打开终端（SSH 或 NAS 的 Docker 终端），进入该文件夹，运行：
+## 导入镜像
+- SSH 登录 NAS 或在 NAS 终端中执行（进入上述目录后）：
+
 ```bash
-sudo docker load -i quicksend_v6.2_arm64.tar
+docker load -i quicksend-image-v1.0.3.tar
 ```
-执行成功后，会看到类似 `Loaded image: quicksend-quicksend:latest` 提示。
 
-**第三步：启动服务**  
-继续在终端中运行：
+- 成功后会出现本地镜像标签：`quicksend:local`
+
+## 启动服务
+- 在镜像与 compose 文件所在目录执行：
+
 ```bash
-sudo docker compose up -d
-```
-如果提示 `docker compose` 不存在，请尝试 `sudo docker-compose up -d`。
-
-**第四步：开始使用**  
-打开浏览器访问：`http://<你的NAS_IP>:8080`
-
-### ❓ 常见问题
-**1. 页面显示的 IP 地址不对（如 172.x.x.x）**  
-Docker 网络隔离导致。打开 `docker-compose.yml`，找到 `environment` 下的 `HOST_IP`，取消注释并改为你 NAS 的真实局域网 IP：
-```yaml
-environment:
-  - HOST_IP=192.168.1.10  # 修改为你自己的 IP
-```
-保存后运行 `docker compose up -d` 重启服务。
-
-**2. 如何修改端口？**  
-修改 `docker-compose.yml` 的 `ports`：
-```yaml
-ports:
-  - "8888:5000"  # 左边是你要访问的端口，右边 5000 不要动
+docker compose up -d
 ```
 
-**3. 文件保存在哪里？**  
-默认情况下，上传的文件会保存在当前目录下的 `uploads` 文件夹中（或你在“设置”里更改后的目录）。
+- 若提示命令不存在，可使用：
+
+```bash
+docker-compose up -d
+```
+
+## 访问应用
+- 浏览器访问：`http://NAS的IP:8000`
+- 如需修改端口，编辑 `docker-compose.yml` 的 `ports` 将 `"8000:8000"` 改为 `"8080:8000"` 等
+
+## 数据持久化与挂载
+- `./data` 映射至容器 `/app/QuickSend`，用于保存配置、metadata、用户信息与日志
+- `./uploads` 映射至容器 `/app/uploads`，用于保存上传的文件
+- 可直接在 NAS 的共享目录中查看与备份以上两个本地文件夹
+
+## 常见问题
+- 启动报错 `exec format error`：镜像架构与设备不匹配，请确保下载的镜像 tar 与设备架构一致
+- 端口占用：修改 `docker-compose.yml` 的 `ports` 映射，换一个宿主机端口
+- 权限问题：命令前加 `sudo` 再试
+
+## 目录结构建议
+- `quicksend/` 根目录（NAS 共享目录）
+  - `quicksend-image-vX.Y.Z.tar` 镜像文件
+  - `docker-compose.yml` 启动配置
+  - `data/` 应用数据（持久化）
+  - `uploads/` 上传文件（持久化）
+
+## 升级流程
+- 下载新版本镜像 tar（例如 `quicksend-image-v1.0.4.tar`）
+- 执行导入：`docker load -i quicksend-image-v1.0.4.tar`
+- 重启服务：`docker compose up -d`（若需要滚动重建，可先 `docker compose down` 再 `up -d`）
+
+
