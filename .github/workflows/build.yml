@@ -133,9 +133,11 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: Install System Dependencies
+    - name: Prepare Static Assets
+      working-directory: quicksend/quicksend/quicksend
+      shell: bash
       run: |
-        npm install -g appdmg
+        cp static/dist/index.html static/index.build.html
 
     - name: Build App
       working-directory: quicksend/quicksend/quicksend
@@ -181,9 +183,11 @@ jobs:
           sips -z 1024 1024 logo2_.png --out assets/icon.iconset/icon_512x512@2x.png >/dev/null
           iconutil -c icns assets/icon.iconset -o logo2_.icns >/dev/null || true
         fi
-
+        
         ICON_OPT=""
-        if [ -f logo2_.icns ]; then
+        if [ -f maclogo.icns ]; then
+          ICON_OPT="--icon=maclogo.icns"
+        elif [ -f logo2_.icns ]; then
           ICON_OPT="--icon=logo2_.icns"
         elif [ -f assets/logo.icns ]; then
           ICON_OPT="--icon=assets/logo.icns"
@@ -206,27 +210,14 @@ jobs:
         echo "Creating DMG..."
         rm -f "dist/${NAME}-mac.dmg"
         mkdir -p dist
-
-        if command -v create-dmg >/dev/null 2>&1; then
-            echo "Using create-dmg..."
-            create-dmg \
-              --volname "${NAME}" \
-              --volicon "logo2_.icns" \
-              --window-pos 200 120 \
-              --window-size 800 400 \
-              --icon-size 100 \
-              --icon "${NAME}.app" 200 190 \
-              --hide-extension "${NAME}.app" \
-              --app-drop-link 600 185 \
-              "dist/${NAME}-mac.dmg" \
-              "dist/${NAME}.app" || {
-                  echo "create-dmg failed, falling back to hdiutil..."
-                  hdiutil create -volname "${NAME}" -srcfolder "dist/${NAME}.app" -ov -format UDZO "dist/${NAME}-mac.dmg"
-              }
-        else
-            echo "create-dmg not found, using hdiutil..."
-            hdiutil create -volname "${NAME}" -srcfolder "dist/${NAME}.app" -ov -format UDZO "dist/${NAME}-mac.dmg"
-        fi
+        
+        DMG_TMP="dist/${NAME}-dmg"
+        rm -rf "$DMG_TMP"
+        mkdir -p "$DMG_TMP"
+        cp -R "dist/${NAME}.app" "$DMG_TMP/"
+        ln -s /Applications "$DMG_TMP/Applications" || true
+        hdiutil create -volname "${NAME}" -srcfolder "$DMG_TMP" -ov -format UDZO "dist/${NAME}-mac.dmg"
+        rm -rf "$DMG_TMP"
         
         echo "DMG Created: dist/${NAME}-mac.dmg"
         EOS
