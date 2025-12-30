@@ -14,9 +14,8 @@ services:
     volumes:
       # Map uploads directory to store files
       - ./uploads:/app/uploads
-      # Map data directory to store configuration, metadata, and user info
-      # Note: By default, the container runs as root, so data is in /root/.local/share/QuickSend
-      - ./data:/root/.local/share/QuickSend
+      # Persist QuickSend app data (config, metadata, users, logs)
+      - ./data:/app/QuickSend
     
     environment:
       - HEADLESS=1

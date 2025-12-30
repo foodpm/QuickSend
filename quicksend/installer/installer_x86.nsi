@@ -1,5 +1,7 @@
 !define PRODUCT_NAME "QuickSend"
+!ifndef PRODUCT_VERSION
 !define PRODUCT_VERSION "1.0.1"
+!endif
 !define PRODUCT_PUBLISHER "QuickSend Team"
 !define PRODUCT_WEB_SITE "http://www.quicksend.com"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\QuickSend.exe"
