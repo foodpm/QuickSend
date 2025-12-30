@@ -172,13 +172,24 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push
+    - name: Build and push (with Secrets)
+      if: secrets.DOCKERHUB_USERNAME != ''
       uses: docker/build-push-action@v5
       with:
         context: quicksend/quicksend/quicksend
         file: quicksend/quicksend/quicksend/Dockerfile
         platforms: linux/amd64,linux/arm64,linux/386
-        push: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME != '' }}
+        push: ${{ github.event_name != 'pull_request' }}
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/quicksend:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/quicksend:${{ github.sha }}
+
+    - name: Build only (No Secrets)
+      if: secrets.DOCKERHUB_USERNAME == ''
+      uses: docker/build-push-action@v5
+      with:
+        context: quicksend/quicksend/quicksend
+        file: quicksend/quicksend/quicksend/Dockerfile
+        platforms: linux/amd64,linux/arm64,linux/386
+        push: false
+        tags: quicksend:local
