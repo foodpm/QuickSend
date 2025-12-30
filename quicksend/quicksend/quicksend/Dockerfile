@@ -30,7 +30,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Remove pywebview from requirements as it's not needed for headless Docker and requires desktop libs
+RUN sed -i '/pywebview/d' requirements.txt && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
