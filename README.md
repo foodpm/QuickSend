@@ -1,5 +1,7 @@
 # 🚀 QuickSend 使用指南
 
+各版本下载链接：https://github.com/foodpm/QuickSend/releases/tag/v1.0.5
+
 ## 👥 面向人群
 - 适合普通用户，无需懂技术或命令行
 - 一台电脑作为“主机”，另一台电脑/手机在同一 Wi‑Fi 下即可使用
