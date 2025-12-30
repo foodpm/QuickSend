@@ -154,9 +154,39 @@ jobs:
         brew install create-dmg
         
         chmod +x build_mac.sh
-        # Modify build_mac.sh to use create-dmg instead of appdmg (which often fails in CI)
-        # We replace the appdmg block with create-dmg
-        sed -i '' 's/npx appdmg dmg.json "dist\/${NAME}-mac.dmg"/create-dmg --volname "${NAME}" --volicon "logo2_.icns" --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "${NAME}.app" 200 190 --hide-extension "${NAME}.app" --app-drop-link 600 185 "dist\/${NAME}-mac.dmg" "dist\/${NAME}.app"/' build_mac.sh
+        
+        # 1. Remove the old appdmg block from build_mac.sh
+        sed -i '' '/npx appdmg/d' build_mac.sh
+        sed -i '' '/create dmg.json/d' build_mac.sh
+        sed -i '' '/cat > dmg.json/,/EOF/d' build_mac.sh
+        
+        # 2. Append create-dmg command to build_mac.sh
+        # Note: We use a simpler create-dmg invocation to minimize errors
+        cat >> build_mac.sh <<'EOF'
+        
+        echo "Creating DMG with create-dmg..."
+        rm -f "dist/${NAME}-mac.dmg"
+        
+        # Ensure dist directory exists
+        mkdir -p dist
+        
+        # Run create-dmg
+        create-dmg \
+          --volname "${NAME}" \
+          --volicon "logo2_.icns" \
+          --window-pos 200 120 \
+          --window-size 800 400 \
+          --icon-size 100 \
+          --icon "${NAME}.app" 200 190 \
+          --hide-extension "${NAME}.app" \
+          --app-drop-link 600 185 \
+          "dist/${NAME}-mac.dmg" \
+          "dist/${NAME}.app" || {
+              echo "create-dmg failed, falling back to hdiutil..."
+              # Fallback to simple hdiutil if create-dmg fails
+              hdiutil create -volname "${NAME}" -srcfolder "dist/${NAME}.app" -ov -format UDZO "dist/${NAME}-mac.dmg"
+          }
+        EOF
         
         ./build_mac.sh
         
