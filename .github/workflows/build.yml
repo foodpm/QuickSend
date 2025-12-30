@@ -140,6 +140,15 @@ jobs:
     - name: Build App
       working-directory: quicksend/quicksend/quicksend
       run: |
+        # Ensure maclogo.png is available in parent directory as expected by build_mac.sh
+        if [ -f "../maclogo.png" ]; then
+          echo "Found maclogo.png in parent directory"
+        else
+          echo "maclogo.png not found in parent, checking current directory"
+          if [ -f "maclogo.png" ]; then
+             cp maclogo.png ../maclogo.png
+          fi
+        fi
         chmod +x build_mac.sh
         ./build_mac.sh
         # Rename dmg to include architecture
