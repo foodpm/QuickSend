@@ -1,6 +1,0 @@
-[Metadata] 初始化创建: E:\code\quick\quicksend\quicksend\quicksend\QuickSend\metadata.json
-DEBUG: Loading sessions from E:\code\quick\quicksend\quicksend\quicksend\QuickSend\sessions.json
-DEBUG: No sessions found
-[网络] 防火墙端口开放: 5006
-[启动] 服务准备
-[启动] 耗时: 200ms, 端口: 5006
