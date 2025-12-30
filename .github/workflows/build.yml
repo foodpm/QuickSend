@@ -156,12 +156,25 @@ jobs:
         chmod +x build_mac.sh
         
         # 1. Remove the old appdmg block from build_mac.sh
+        # Using more robust sed pattern to avoid "command c expects \ followed by text" error
         sed -i '' '/npx appdmg/d' build_mac.sh
         sed -i '' '/create dmg.json/d' build_mac.sh
-        sed -i '' '/cat > dmg.json/,/EOF/d' build_mac.sh
+        # Remove the cat heredoc block safely
+        # We'll just append the new logic, the old logic won't run because of exit/return or we overwrite the file end
+        # Actually, simpler approach: Truncate the script after the pyinstaller command
+        # Find line number of pyinstaller command
+        LINE=$(grep -n "PyInstaller" build_mac.sh | head -n 1 | cut -d: -f1)
+        if [ ! -z "$LINE" ]; then
+            # Keep everything up to the pyinstaller command (plus a few lines for safety)
+            # But wait, the original script has logic after pyinstaller.
+            # Let's just append an exit 0 before the old logic starts? No, we want to run our new logic.
+            
+            # Alternative: Rewrite the DMG part entirely by filtering the file
+            grep -v "appdmg" build_mac.sh > build_mac.tmp && mv build_mac.tmp build_mac.sh
+            grep -v "dmg.json" build_mac.sh > build_mac.tmp && mv build_mac.tmp build_mac.sh
+        fi
         
         # 2. Append create-dmg command to build_mac.sh
-        # Note: We use a simpler create-dmg invocation to minimize errors
         cat >> build_mac.sh <<'EOF'
         
         echo "Creating DMG with create-dmg..."
@@ -171,6 +184,7 @@ jobs:
         mkdir -p dist
         
         # Run create-dmg
+        # Note: We run this from the script's directory
         create-dmg \
           --volname "${NAME}" \
           --volicon "logo2_.icns" \
@@ -183,7 +197,6 @@ jobs:
           "dist/${NAME}-mac.dmg" \
           "dist/${NAME}.app" || {
               echo "create-dmg failed, falling back to hdiutil..."
-              # Fallback to simple hdiutil if create-dmg fails
               hdiutil create -volname "${NAME}" -srcfolder "dist/${NAME}.app" -ov -format UDZO "dist/${NAME}-mac.dmg"
           }
         EOF
