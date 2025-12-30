@@ -92,7 +92,7 @@ app = Flask(__name__, static_folder=STATIC_FOLDER, template_folder=STATIC_FOLDER
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 * 1024  # 16GB max upload size
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-VERSION = "1.0.1"
+VERSION = "1.0.3"
 GLOBAL_PORT = 5000
 
 
@@ -1609,4 +1609,3 @@ if __name__ == '__main__':
                     time.sleep(1)
             except KeyboardInterrupt:
                 pass
-
