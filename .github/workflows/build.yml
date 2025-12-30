@@ -81,7 +81,10 @@ jobs:
         fi
 
     - name: Setup NSIS
-      run: choco install nsis
+      run: |
+        choco install nsis
+        # Add NSIS to PATH for subsequent steps
+        echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
 
     - name: Run NSIS
       working-directory: quicksend/quicksend/quicksend
