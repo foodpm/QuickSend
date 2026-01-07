@@ -113,6 +113,24 @@
 - 搜索支持模糊匹配，文件名记不清也能快速定位
 
 ---
+# QuickSend dockercompose
+
+version: "3.8"
+services:
+  quicksend:
+    image: ${DOCKER_IMAGE:-foodpm/quicksend}:${VERSION_TAG:-latest}
+    container_name: quicksend
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - HEADLESS=1
+      - PORT=8000
+      - QUICKSEND_NO_BROWSER=1
+    volumes:
+      - ./uploads:/app/uploads
+      - ./data:/app/QuickSend
+    restart: unless-stopped
+---
 
 # QuickSend 离线导入 NAS Docker 教程
 
