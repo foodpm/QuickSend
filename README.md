@@ -114,7 +114,7 @@
 
 ---
 # QuickSend dockercompose
-
+```
 version: "3.8"
 services:
   quicksend:
@@ -130,6 +130,7 @@ services:
       - ./uploads:/app/uploads
       - ./data:/app/QuickSend
     restart: unless-stopped
+```
 ---
 
 # QuickSend 离线导入 NAS Docker 教程
