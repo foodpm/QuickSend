@@ -1,6 +1,6 @@
 !define PRODUCT_NAME "QuickSend"
 !ifndef PRODUCT_VERSION
-!define PRODUCT_VERSION "1.0.1"
+!define PRODUCT_VERSION "1.0.6"
 !endif
 !define PRODUCT_PUBLISHER "QuickSend Team"
 !define PRODUCT_WEB_SITE "http://www.quicksend.com"

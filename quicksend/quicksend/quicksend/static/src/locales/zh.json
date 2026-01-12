@@ -1,0 +1,15 @@
+{
+  "help": "帮助",
+  "language": "语言",
+  "switch_lang": "Switch to English",
+  "upload_title": "文件传输",
+  "files_tab": "已分享文件",
+  "text_tab": "已分享文字",
+  "login_register": "登录 / 注册",
+  "local_name": "本机名称",
+  "access_password": "访问密码",
+  "software_update": "软件更新&联系作者",
+  "same_wifi": "同一 Wi-Fi 下设备可互传",
+  "uploader_manage": "上传者可管理自己的文件",
+  "exit_program": "退出程序（仅本机）"
+}
