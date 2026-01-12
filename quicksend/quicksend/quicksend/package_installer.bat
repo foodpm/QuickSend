@@ -8,8 +8,10 @@ echo [1/2] Checking for NSIS (makensis.exe)...
 
 set "NSIS_PATH="
 
-if exist "D:\nsis\makensis.exe" (
-    set "NSIS_PATH=D:\nsis\makensis.exe"
+if exist "D:\NSIS\makensis.exe" (
+    set "NSIS_PATH=D:\NSIS\makensis.exe"
+) else if exist "D:\NSIS\Bin\makensis.exe" (
+    set "NSIS_PATH=D:\NSIS\Bin\makensis.exe"
 ) else if exist "C:\Program Files (x86)\NSIS\makensis.exe" (
     set "NSIS_PATH=C:\Program Files (x86)\NSIS\makensis.exe"
 ) else if exist "C:\Program Files\NSIS\makensis.exe" (
@@ -33,7 +35,16 @@ if "%NSIS_PATH%"=="" (
 echo Found NSIS at: %NSIS_PATH%
 
 echo [2/2] Compiling installer script...
-"%NSIS_PATH%" /INPUTCHARSET UTF8 installer.nsi
+"%NSIS_PATH%" /INPUTCHARSET UTF8 ..\..\installer\QuickSend.nsi
+
+if %errorlevel% neq 0 (
+    echo.
+    echo Error: Failed to compile installer.
+    pause
+    exit /b %errorlevel%
+)
+
+"%NSIS_PATH%" /INPUTCHARSET UTF8 ..\..\installer\installer_x86.nsi
 
 if %errorlevel% neq 0 (
     echo.
@@ -43,6 +54,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Success! Installer created in dist folder.
-echo File: dist\QuickSend_Setup_v6.0.exe
+echo Success! Installers created in ..\..\installer folder.
+echo 64-bit: ..\..\installer\QuickSend-Setup-1.0.6-win64.exe
+echo 32-bit: ..\..\installer\QuickSend-Setup-1.0.6-win32.exe
 pause

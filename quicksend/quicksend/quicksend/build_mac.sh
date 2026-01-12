@@ -12,12 +12,12 @@ if [ -f requirements.txt ]; then
   python3 -m pip install -q -r requirements.txt
 fi
 python3 -m pip install -q PyInstaller
-if [ ! -f "logo2_.icns" ] && [ -d "assets/icon.iconset" ]; then
+if [ ! -f "maclogo.icns" ] && [ ! -f "logo2_.icns" ] && [ -d "assets/icon.iconset" ]; then
   echo "Generating logo2_.icns from assets/icon.iconset..."
   iconutil -c icns assets/icon.iconset -o logo2_.icns || true
 fi
 
-if [ -f "logo2_.png" ] && [ ! -f "logo2_.icns" ]; then
+if [ ! -f "maclogo.icns" ] && [ -f "logo2_.png" ] && [ ! -f "logo2_.icns" ]; then
   mkdir -p assets/icon.iconset
   sips -z 16 16 logo2_.png --out assets/icon.iconset/icon_16x16.png >/dev/null
   sips -z 32 32 logo2_.png --out assets/icon.iconset/icon_16x16@2x.png >/dev/null
@@ -32,12 +32,14 @@ if [ -f "logo2_.png" ] && [ ! -f "logo2_.icns" ]; then
   iconutil -c icns assets/icon.iconset -o logo2_.icns >/dev/null || true
 fi
 ICON_OPT=""
-if [ -f logo2_.icns ]; then
+if [ -f maclogo.icns ]; then
+  ICON_OPT="--icon=maclogo.icns"
+elif [ -f logo2_.icns ]; then
   ICON_OPT="--icon=logo2_.icns"
 elif [ -f assets/logo.icns ]; then
   ICON_OPT="--icon=assets/logo.icns"
 fi
-python3 -m PyInstaller --clean --windowed --onedir --name "$NAME" --osx-bundle-identifier com.quicksend.app \
+python3 -m PyInstaller --noconfirm --clean --windowed --onedir --name "$NAME" --osx-bundle-identifier com.quicksend.app \
   --add-data "static/dist:static/dist" \
   --add-data "static/fonts:static/fonts" \
   --add-data "static/index.build.html:static" \
@@ -47,28 +49,38 @@ python3 -m PyInstaller --clean --windowed --onedir --name "$NAME" --osx-bundle-i
   --add-data "static/favicon.png:static" \
   --hidden-import werkzeug.security \
   $ICON_OPT app.py
-# Create dmg.json
-cat > dmg.json <<EOF
+
+mkdir -p dist
+DMG_JSON="dist/dmg.json"
+DMG_ICON=""
+if [ -f maclogo.icns ]; then
+  DMG_ICON="maclogo.icns"
+  cp -f maclogo.icns "dist/maclogo.icns"
+elif [ -f logo2_.icns ]; then
+  DMG_ICON="logo2_.icns"
+  cp -f logo2_.icns "dist/logo2_.icns"
+fi
+
+cat > "$DMG_JSON" <<EOF
 {
   "title": "$NAME",
-  "icon": "logo2_.icns",
+  "icon": "$DMG_ICON",
   "contents": [
     { "x": 448, "y": 344, "type": "link", "path": "/Applications" },
-    { "x": 192, "y": 344, "type": "file", "path": "dist/${NAME}.app" }
+    { "x": 192, "y": 344, "type": "file", "path": "${NAME}.app" }
   ]
 }
 EOF
 
-# Check if icon exists, if not, remove icon line from json
-if [ ! -f "logo2_.icns" ]; then
+if [ -z "$DMG_ICON" ]; then
   # macOS sed requires empty string for extension
-  sed -i '' '/"icon":/d' dmg.json
+  sed -i '' '/"icon":/d' "$DMG_JSON"
 fi
 
 rm -f "dist/${NAME}-mac.dmg"
 echo "Building DMG with appdmg..."
 if command -v npx >/dev/null 2>&1; then
-    npx appdmg dmg.json "dist/${NAME}-mac.dmg"
+    npx appdmg "$DMG_JSON" "dist/${NAME}-mac.dmg"
 else
     echo "npx not found, falling back to hdiutil..."
     DMG_TMP="dist/${NAME}-dmg"
@@ -79,4 +91,5 @@ else
     hdiutil create -volname "$NAME" -srcfolder "$DMG_TMP" -ov -format UDZO "dist/${NAME}-mac.dmg"
     rm -rf "$DMG_TMP"
 fi
+rm -f "$DMG_JSON" || true
 echo "DMG: dist/$NAME-mac.dmg"

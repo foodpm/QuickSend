@@ -675,28 +675,6 @@ def api_version():
     return jsonify({'version': VERSION})
 
 
-@app.route('/admin')
-@app.route('/admin.html')
-def admin_page():
-    # Check for dist/admin.html (Vite build output)
-    p_dist = os.path.join(STATIC_FOLDER, 'dist', 'admin.html')
-    if os.path.exists(p_dist):
-        resp = send_from_directory(os.path.join(STATIC_FOLDER, 'dist'), 'admin.html')
-        try:
-            resp.cache_control.no_cache = True
-            resp.cache_control.no_store = True
-            resp.headers['Pragma'] = 'no-cache'
-        except Exception:
-            pass
-        return resp
-        
-    # Fallback for dev/flat structure
-    if os.path.exists(os.path.join(STATIC_FOLDER, 'admin.html')):
-        return send_from_directory(STATIC_FOLDER, 'admin.html')
-        
-    return "Admin page not found. Please build the frontend first.", 404
-
-
 @app.route('/')
 def index():
     # Check for dist/index.html (Vite build output)

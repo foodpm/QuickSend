@@ -1,15 +1,14 @@
 import React from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import './src/i18n';
 import Home from './src/pages/Home.tsx';
-import Admin from './src/pages/Admin.tsx';
 
 const App = () => {
+  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const base = path.startsWith('/dist') ? '/dist' : '';
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={base}>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/admin" element={<Admin />} />
       </Routes>
     </BrowserRouter>
   );

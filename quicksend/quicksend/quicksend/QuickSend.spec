@@ -32,7 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['logo2_.icns'],
+    icon=['maclogo.icns'],
 )
 coll = COLLECT(
     exe,
@@ -46,6 +46,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='QuickSend.app',
-    icon='logo2_.icns',
+    icon='maclogo.icns',
     bundle_identifier='com.quicksend.app',
 )

@@ -49,9 +49,206 @@ import { renderAsync } from 'docx-preview';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { FileItem, IpResponse, TextItem, GroupItem } from '../../types';
-import { useTranslation } from 'react-i18next';
-import { initTCB, recordInstall, recordDailyActive, recordFileStats } from '../utils/tcb';
-import { Globe } from 'lucide-react';
+
+type Lang = 'zh' | 'en';
+type LangPreference = 'auto' | Lang;
+
+const getBrowserLang = (): Lang => {
+  try {
+    const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+    const raw = (nav?.languages && nav.languages[0]) || nav?.language || '';
+    return raw.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+  } catch {
+    return 'en';
+  }
+};
+
+const I18N: Record<Lang, Record<string, string>> = {
+  zh: {
+    'app.online': 'Online',
+    'qr.title': '扫码连接',
+    'qr.hint': '请使用手机相机或扫码应用扫描上方二维码',
+    'auth.title': '登录 / 注册',
+    'auth.deviceName': '本机名称',
+    'auth.namePlaceholder': '输入名称',
+    'auth.password': '访问密码',
+    'auth.passwordPlaceholder': '设置或验证密码',
+    'auth.submitting': '处理中...',
+    'auth.submit': '登录 / 注册',
+    'auth.error.missing': '请输入用户名和密码',
+    'auth.error.verify': '验证失败',
+    'auth.error.network': '网络错误',
+    'profile.identity': '本机身份',
+    'profile.notLoggedIn': '未登录',
+    'profile.loggedIn': '已登录',
+    'profile.logout': '退出登录',
+    'profile.login': '登录',
+    'profile.lanAddress': '局域网连接地址',
+    'profile.fetching': '获取中...',
+    'profile.showQr': '展示二维码',
+    'profile.lanHint': '在同一 Wi-Fi 下的设备浏览器中输入此地址即可互传文件。',
+    'settings.title': '设置',
+    'settings.language': '语言',
+    'settings.lang.auto': '跟随浏览器',
+    'settings.lang.zh': '简体中文',
+    'settings.lang.en': 'English',
+    'settings.storagePath': '文件存储位置',
+    'settings.selectFolder': '选择文件夹',
+    'settings.storageHint': '仅本机可修改，修改后新文件将保存至此目录。',
+    'settings.transferMode': '传输模式',
+    'settings.mode.share': '共享中心',
+    'settings.mode.oneway': '单向传输',
+    'settings.mode.shareDesc': '共享中心模式：所有设备均可查看并下载已分享的文件。',
+    'settings.mode.onewayDesc': '单向传输模式：其他设备仅可上传文件，不可查看已分享内容（仅本机可见）。',
+    'settings.groupPermission': '分组权限',
+    'settings.allowRemoteCreateGroup': '允许其他设备创建分组',
+    'settings.allowRemoteCreateGroupHint': '仅本机可修改，关闭后其他设备将无法创建分组。',
+    'settings.keepPhotoDate': '保留图片拍摄日期',
+    'settings.keepPhotoDateDesc': '上传图片时，尝试将文件的创建日期设置为 EXIF 拍摄时间',
+    'common.cancel': '取消',
+    'common.confirm': '确认',
+    'common.saveChanges': '保存更改',
+    'common.delete': '删除',
+    'common.edit': '编辑',
+    'common.copy': '复制',
+    'common.setPassword': '设置密码',
+    'common.encrypted': '已加密',
+    'common.show': '显示',
+    'common.hide': '隐藏',
+    'common.pin': '置顶',
+    'common.unpin': '取消置顶',
+    'common.guest': '访客',
+    'tabs.files': '已分享文件',
+    'tabs.texts': '已分享文字',
+    'search.placeholder': '搜索文件（支持模糊）',
+    'search.confirm': '确认搜索',
+    'empty.texts': '暂无分享文字',
+    'upload.section': '文件传输',
+    'upload.tab.file': '文件',
+    'upload.tab.text': '文字',
+    'upload.uploading': '正在传输...',
+    'upload.dropTitle': '点击或拖拽上传',
+    'upload.dropHint': '支持任意文件格式',
+    'upload.passwordOptional': '设置访问密码 (可选)',
+    'upload.passwordLoginRequired': '登录后可设置密码',
+    'upload.chooseFile': '选择文件',
+    'upload.textPlaceholder': '输入要分享的文字',
+    'upload.shareText': '分享文字',
+    'group.root': '根目录',
+    'group.default': '分组',
+    'file.previewTip': '点击预览',
+    'file.preview': '预览',
+    'file.showInFolder': '在文件夹中显示',
+    'file.open': '打开',
+    'mode.oneway.title': '当前处于单向传输模式',
+    'mode.oneway.desc': '仅支持上传文件，不可查看已分享内容',
+    'help.title': '帮助',
+    'help.tip1': '同一 Wi-Fi 下设备可互传',
+    'help.tip2': '上传者可管理自己的文件',
+    'help.updateContact': '软件更新&联系作者'
+  },
+  en: {
+    'app.online': 'Online',
+    'qr.title': 'Connect via QR',
+    'qr.hint': 'Use your camera or a QR scanner app to scan',
+    'auth.title': 'Sign in / Register',
+    'auth.deviceName': 'Device name',
+    'auth.namePlaceholder': 'Enter name',
+    'auth.password': 'Password',
+    'auth.passwordPlaceholder': 'Set or verify password',
+    'auth.submitting': 'Working...',
+    'auth.submit': 'Sign in / Register',
+    'auth.error.missing': 'Please enter username and password',
+    'auth.error.verify': 'Verification failed',
+    'auth.error.network': 'Network error',
+    'profile.identity': 'Identity',
+    'profile.notLoggedIn': 'Not signed in',
+    'profile.loggedIn': 'Signed in',
+    'profile.logout': 'Sign out',
+    'profile.login': 'Sign in',
+    'profile.lanAddress': 'LAN Address',
+    'profile.fetching': 'Loading...',
+    'profile.showQr': 'Show QR code',
+    'profile.lanHint': 'Open this address on devices in the same Wi‑Fi to transfer files.',
+    'settings.title': 'Settings',
+    'settings.language': 'Language',
+    'settings.lang.auto': 'Follow browser',
+    'settings.lang.zh': '简体中文',
+    'settings.lang.en': 'English',
+    'settings.storagePath': 'Storage location',
+    'settings.selectFolder': 'Select folder',
+    'settings.storageHint': 'Only configurable on this device. New files will be saved here.',
+    'settings.transferMode': 'Transfer mode',
+    'settings.mode.share': 'Share center',
+    'settings.mode.oneway': 'One-way',
+    'settings.mode.shareDesc': 'Share center: all devices can browse and download shared files.',
+    'settings.mode.onewayDesc': 'One-way: other devices can upload only; shared content is hidden (host-only).',
+    'settings.groupPermission': 'Group permission',
+    'settings.allowRemoteCreateGroup': 'Allow other devices to create groups',
+    'settings.allowRemoteCreateGroupHint': 'Only configurable on this device. When off, others cannot create groups.',
+    'settings.keepPhotoDate': 'Preserve photo capture time',
+    'settings.keepPhotoDateDesc': 'When uploading photos, try using EXIF time as file creation time',
+    'common.cancel': 'Cancel',
+    'common.confirm': 'OK',
+    'common.saveChanges': 'Save',
+    'common.delete': 'Delete',
+    'common.edit': 'Edit',
+    'common.copy': 'Copy',
+    'common.setPassword': 'Set password',
+    'common.encrypted': 'Encrypted',
+    'common.show': 'Show',
+    'common.hide': 'Hide',
+    'common.pin': 'Pin',
+    'common.unpin': 'Unpin',
+    'common.guest': 'Guest',
+    'tabs.files': 'Shared files',
+    'tabs.texts': 'Shared text',
+    'search.placeholder': 'Search files',
+    'search.confirm': 'Search',
+    'empty.texts': 'No shared text',
+    'upload.section': 'Transfer',
+    'upload.tab.file': 'Files',
+    'upload.tab.text': 'Text',
+    'upload.uploading': 'Uploading...',
+    'upload.dropTitle': 'Click or drag to upload',
+    'upload.dropHint': 'Any file type supported',
+    'upload.passwordOptional': 'Optional password',
+    'upload.passwordLoginRequired': 'Sign in to set password',
+    'upload.chooseFile': 'Choose files',
+    'upload.textPlaceholder': 'Enter text to share',
+    'upload.shareText': 'Share text',
+    'group.root': 'Root',
+    'group.default': 'Group',
+    'file.previewTip': 'Click to preview',
+    'file.preview': 'Preview',
+    'file.showInFolder': 'Show in folder',
+    'file.open': 'Open',
+    'mode.oneway.title': 'One-way mode',
+    'mode.oneway.desc': 'Uploads only. Shared content is not visible.',
+    'help.title': 'Help',
+    'help.tip1': 'Transfer between devices on the same Wi‑Fi',
+    'help.tip2': 'Uploaders can manage their own files',
+    'help.updateContact': 'Updates & Contact'
+  }
+};
+
+const createT = (lang: Lang) => (key: string): string => {
+  return I18N[lang][key] ?? I18N.zh[key] ?? key;
+};
+
+const I18nContext = React.createContext<{
+  lang: Lang;
+  langPreference: LangPreference;
+  setLangPreference: (p: LangPreference) => void;
+  t: (key: string) => string;
+}>({
+  lang: 'zh',
+  langPreference: 'auto',
+  setLangPreference: () => {},
+  t: (key) => key
+});
+
+const useI18n = () => React.useContext(I18nContext);
 
 // --- Utility Functions ---
 
@@ -63,17 +260,17 @@ const formatSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const formatDate = (timestamp: number): string => {
+const formatDate = (timestamp: number, locale: string = 'zh-CN'): string => {
   const date = new Date(timestamp * 1000);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
 
   // If less than 24 hours
   if (diff < 24 * 60 * 60 * 1000 && now.getDate() === date.getDate()) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   }
 
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -102,7 +299,7 @@ const safeCopyText = async (text: string): Promise<boolean> => {
     if (ok) return true;
   } catch { }
   try {
-    window.prompt('复制到剪贴板失败，请手动复制：', text);
+    window.prompt('Copy failed. Please copy manually:', text);
   } catch { }
   return false;
 };
@@ -212,6 +409,7 @@ const GroupNode = ({
   onPinGroup,
   fileCardProps
 }: any) => {
+  const { t } = useI18n();
   const isRoot = node.id === 'root';
   const isExpanded = expandedState[node.id];
   const groupFiles = files.filter((f: FileItem) => (f.group_id || 'root') === node.id);
@@ -241,7 +439,7 @@ const GroupNode = ({
                 <div className="flex items-center gap-1.5 min-w-0">
                    <Folder size={16} className={`shrink-0 ${dragOverId === node.id ? 'text-indigo-500 fill-indigo-50' : 'text-indigo-400'}`} />
                    <span className={`text-sm font-medium truncate ${dragOverId === node.id ? 'text-indigo-700' : 'text-slate-800'}`}>
-                     {node.name || '分组'}
+                     {node.name || t('group.default')}
                    </span>
                    {node.is_pinned && <Pin size={12} className="text-amber-500 rotate-45" fill="currentColor" />}
                 </div>
@@ -251,28 +449,28 @@ const GroupNode = ({
                       <button 
                         onClick={(e) => { e.stopPropagation(); onEditGroup(node); }}
                         className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-                        title="编辑"
+                        title={t('common.edit')}
                       >
                          <Pencil size={14} />
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); onPinGroup(node.id, !node.is_pinned); }}
                         className={`p-1 rounded hover:bg-slate-100 ${node.is_pinned ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'}`}
-                        title={node.is_pinned ? "取消置顶" : "置顶"}
+                        title={node.is_pinned ? t('common.unpin') : t('common.pin')}
                       >
                          {node.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); onHide(node.id, !node.hidden); }}
                         className={`p-1 rounded hover:bg-slate-100 ${node.hidden ? 'text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
-                        title={node.hidden ? "显示" : "隐藏"}
+                        title={node.hidden ? t('common.show') : t('common.hide')}
                       >
                          {node.hidden ? <Eye size={14} /> : <EyeOff size={14} />}
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); onDeleteGroup(node.id); }}
                         className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="删除"
+                        title={t('common.delete')}
                       >
                          <Trash2 size={14} />
                       </button>
@@ -343,6 +541,7 @@ const AuthModal = ({
   onClose: () => void;
   onLoginSuccess: (token: string, username: string) => void;
 }) => {
+  const { t } = useI18n();
   const [username, setUsername] = useState(localStorage.getItem('last_username') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -361,7 +560,7 @@ const AuthModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError('请输入用户名和密码');
+      setError(t('auth.error.missing'));
       return;
     }
     setLoading(true);
@@ -378,10 +577,10 @@ const AuthModal = ({
         onClose();
         setPassword(''); // Clear password on success
       } else {
-        setError(data.message || '验证失败');
+        setError(data.message || t('auth.error.verify'));
       }
     } catch (err) {
-      setError('网络错误');
+      setError(t('auth.error.network'));
     } finally {
       setLoading(false);
     }
@@ -391,30 +590,30 @@ const AuthModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h3 className="font-bold text-slate-900">登录 / 注册</h3>
+          <h3 className="font-bold text-slate-900">{t('auth.title')}</h3>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/50 transition-colors">
             <X size={20} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">本机名称</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t('auth.deviceName')}</label>
             <input
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-              placeholder="输入名称"
+              placeholder={t('auth.namePlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">访问密码</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t('auth.password')}</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-              placeholder="设置或验证密码"
+              placeholder={t('auth.passwordPlaceholder')}
             />
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -423,7 +622,7 @@ const AuthModal = ({
             disabled={loading}
             className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium shadow-sm transition-all disabled:opacity-50"
           >
-            {loading ? '处理中...' : '登录 / 注册'}
+            {loading ? t('auth.submitting') : t('auth.submit')}
           </button>
         </form>
       </div>
@@ -440,6 +639,7 @@ const QrCodeModal = ({
   onClose: () => void;
   url: string | null;
 }) => {
+  const { t } = useI18n();
   if (!isOpen || !url) return null;
 
   return createPortal(
@@ -455,7 +655,7 @@ const QrCodeModal = ({
           <X size={24} />
         </button>
         
-        <h3 className="text-xl font-bold text-slate-900 mb-6">扫码连接</h3>
+        <h3 className="text-xl font-bold text-slate-900 mb-6">{t('qr.title')}</h3>
         
         <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-inner mb-6">
           <QRCodeCanvas
@@ -473,9 +673,7 @@ const QrCodeModal = ({
           </p>
         </div>
         
-        <p className="text-slate-400 mt-4 text-xs text-center">
-          请使用手机相机或扫码应用扫描上方二维码
-        </p>
+        <p className="text-slate-400 mt-4 text-xs text-center">{t('qr.hint')}</p>
       </div>
       
       {/* Click outside to close */}
@@ -502,6 +700,7 @@ const UserProfileCard = ({
   isHost?: boolean,
   onOpenSettings?: () => void
 }) => {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
 
@@ -533,44 +732,50 @@ const UserProfileCard = ({
             <button
               onClick={onOpenSettings}
               className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-              title="设置"
+              title={t('settings.title')}
             >
               <Settings size={16} />
             </button>
           )}
           <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded-md">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-[10px] font-medium text-slate-600">Online</span>
+            <span className="text-[10px] font-medium text-slate-600">{t('app.online')}</span>
           </div>
         </div>
       </div>
 
       <div className="p-4 space-y-5">
         <div>
-          <label className="text-xs font-medium text-slate-500 mb-1.5 block">本机身份</label>
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">{t('profile.identity')}</label>
           <div className="flex items-center gap-2">
             <div className="relative flex-1 group">
               <div className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 flex items-center justify-between">
-                <span className={!username ? "text-slate-400" : ""}>{username || '未登录'}</span>
-                {isLoggedIn && <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-medium">已登录</span>}
+                <span className={!username ? "text-slate-400" : ""}>{username || t('profile.notLoggedIn')}</span>
+                {isLoggedIn && <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-medium">{t('profile.loggedIn')}</span>}
               </div>
               <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             </div>
             {isLoggedIn ? (
-               <div />
+               <button
+                onClick={onLogout}
+                className="p-2 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors border border-slate-200 hover:border-red-200"
+                title={t('profile.logout')}
+               >
+                 <LogOut size={16} />
+               </button>
             ) : (
               <button
                 onClick={onLogin}
                 className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-sm transition-all whitespace-nowrap"
               >
-                登录
+                {t('profile.login')}
               </button>
             )}
           </div>
         </div>
 
         <div>
-          <label className="text-xs font-medium text-slate-500 mb-1.5 block">局域网连接地址</label>
+          <label className="text-xs font-medium text-slate-500 mb-1.5 block">{t('profile.lanAddress')}</label>
           <div
             onClick={handleCopy}
             className="cursor-pointer flex items-center justify-between p-2.5 bg-slate-900 hover:bg-slate-800 rounded-lg transition-all active:scale-[0.99] group/ip"
@@ -580,7 +785,7 @@ const UserProfileCard = ({
               <div className="relative overflow-hidden">
                 <code className="text-sm font-mono font-medium text-slate-100 whitespace-nowrap truncate group-hover/ip:overflow-visible group-hover/ip:text-clip transition-all duration-300">
                   <span className="group-hover/ip:animate-[marquee_5s_linear_infinite] inline-block">
-                    {ipAddress || '获取中...'}
+                    {ipAddress || t('profile.fetching')}
                   </span>
                 </code>
               </div>
@@ -592,7 +797,7 @@ const UserProfileCard = ({
                   setShowQrCode(true);
                 }}
                 className="p-1.5 text-slate-400 hover:text-white transition-colors rounded-md hover:bg-slate-700"
-                title="展示二维码"
+                title={t('profile.showQr')}
               >
                 <QrCode size={16} />
               </button>
@@ -600,7 +805,7 @@ const UserProfileCard = ({
             </div>
           </div>
           <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-            在同一 Wi-Fi 下的设备浏览器中输入此地址即可互传文件。
+            {t('profile.lanHint')}
           </p>
           <style>{`
             @keyframes marquee {
@@ -615,6 +820,7 @@ const UserProfileCard = ({
 };
 
 const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, isLoggedIn, onLoginRequired, groups, selectedGroupId, onChangeGroup }: { onUpload: (files: FileList, password?: string, groupId?: string) => void, onShareText?: (content: string, password?: string) => void, isUploading: boolean, progress: number, isLoggedIn: boolean, onLoginRequired: () => void, groups: GroupItem[], selectedGroupId: string, onChangeGroup: (id: string) => void }) => {
+  const { t } = useI18n();
   const [mode, setMode] = useState<'file' | 'text'>('file');
   const [isDragOver, setIsDragOver] = useState(false);
   const [password, setPassword] = useState('');
@@ -656,8 +862,8 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-1">
       <div className="flex items-center gap-2 px-3 pt-3">
-        <button onClick={() => setMode('file')} className={`px-2 py-1 rounded text-xs font-medium ${mode === 'file' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>文件</button>
-        <button onClick={() => setMode('text')} className={`px-2 py-1 rounded text-xs font-medium ${mode === 'text' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>文字</button>
+        <button onClick={() => setMode('file')} className={`px-2 py-1 rounded text-xs font-medium ${mode === 'file' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{t('upload.tab.file')}</button>
+        <button onClick={() => setMode('text')} className={`px-2 py-1 rounded text-xs font-medium ${mode === 'text' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>{t('upload.tab.text')}</button>
       </div>
       <div
         className={`relative flex flex-col items-center justify-center w-full rounded-lg transition-all duration-200 overflow-hidden mt-2 ${isUploading && mode === 'file'
@@ -676,7 +882,7 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
               <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center mb-3 shadow-sm">
                 <div className="w-4 h-4 border-2 border-slate-800 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <p className="text-sm font-semibold text-slate-800 mb-2">正在传输...</p>
+              <p className="text-sm font-semibold text-slate-800 mb-2">{t('upload.uploading')}</p>
               <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-slate-900 transition-all duration-300 ease-out rounded-full"
@@ -690,8 +896,8 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
               <div className={`w-10 h-10 mb-3 rounded-lg flex items-center justify-center transition-colors ${isDragOver ? 'bg-blue-100 text-blue-600' : 'bg-white border border-slate-200 text-slate-600 shadow-sm'}`}>
                 <Upload size={20} strokeWidth={1.5} />
               </div>
-              <h3 className="text-sm font-semibold text-slate-800">点击或拖拽上传</h3>
-              <p className="text-xs text-slate-400 mb-5">支持任意文件格式</p>
+              <h3 className="text-sm font-semibold text-slate-800">{t('upload.dropTitle')}</h3>
+              <p className="text-xs text-slate-400 mb-5">{t('upload.dropHint')}</p>
       <div className="w-full space-y-2">
                 <div className="relative">
                   <select
@@ -701,7 +907,7 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
                   >
                     {flattenTree(buildGroupTree(groups)).map(g => (
                       <option key={g.id} value={g.id}>
-                        {'\u00A0'.repeat(g.depth * 2) + (g.id === 'root' ? '根目录' : g.name)}
+                        {'\u00A0'.repeat(g.depth * 2) + (g.id === 'root' ? t('group.root') : g.name)}
                       </option>
                     ))}
                   </select>
@@ -710,7 +916,7 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder={isLoggedIn ? "设置访问密码 (可选)" : "登录后可设置密码"}
+                    placeholder={isLoggedIn ? t('upload.passwordOptional') : t('upload.passwordLoginRequired')}
                     value={password}
                     onChange={handlePasswordChange}
                     onClick={() => !isLoggedIn && onLoginRequired()}
@@ -723,7 +929,7 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2"
                 >
-                  选择文件
+                  {t('upload.chooseFile')}
                 </button>
               </div>
               <input
@@ -740,13 +946,13 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
             <textarea
               value={textContent}
               onChange={(e) => setTextContent(e.target.value)}
-              placeholder="输入要分享的文字"
+              placeholder={t('upload.textPlaceholder')}
               className="w-full h-28 px-3 py-2 bg-white rounded-md border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none text-xs text-slate-800 placeholder-slate-400 transition-all"
             />
             <div className="relative">
               <input
                 type="text"
-                placeholder={isLoggedIn ? "设置访问密码 (可选)" : "登录后可设置密码"}
+                placeholder={isLoggedIn ? t('upload.passwordOptional') : t('upload.passwordLoginRequired')}
                 value={password}
                 onChange={handlePasswordChange}
                 onClick={() => !isLoggedIn && onLoginRequired()}
@@ -759,7 +965,7 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
               onClick={shareText}
               className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-semibold shadow-sm transition-all"
             >
-              分享文字
+              {t('upload.shareText')}
             </button>
           </div>
         )}
@@ -794,6 +1000,8 @@ const FileCard = ({
   isLoggedIn: boolean;
 }) => {
   const { showToast } = useToast();
+  const { lang, t } = useI18n();
+  const locale = lang === 'zh' ? 'zh-CN' : 'en-US';
   const isOwner = isLoggedIn && file.uploader === currentUser;
   
   const handlePreview = () => {
@@ -819,7 +1027,7 @@ const FileCard = ({
         body: JSON.stringify({ path: file.name, reveal: true })
       });
     } catch (e) {
-      showToast('打开失败', 'error');
+      showToast(t('auth.error.network'), 'error');
     }
   };
   
@@ -842,7 +1050,7 @@ const FileCard = ({
         <div 
           className={`w-10 h-10 rounded bg-slate-50 border border-slate-100 text-slate-500 flex items-center justify-center shrink-0 ${canPreview ? 'cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition-colors' : ''}`}
           onClick={canPreview ? handlePreview : undefined}
-          title={canPreview ? "点击预览" : ""}
+          title={canPreview ? t('file.previewTip') : ""}
         >
           {isImage ? (
             <span className="text-[10px] font-bold uppercase text-slate-400">IMG</span>
@@ -873,9 +1081,9 @@ const FileCard = ({
           <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
             <span className="font-mono">{formatSize(file.size)}</span>
             <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
-            <span>{file.uploader || '访客'}</span>
+            <span>{file.uploader || t('common.guest')}</span>
             <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
-            <span>{formatDate(file.mtime)}</span>
+            <span>{formatDate(file.mtime, locale)}</span>
           </div>
         </div>
       </div>
@@ -887,7 +1095,7 @@ const FileCard = ({
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-medium transition-colors"
           >
             <Eye size={14} />
-            <span className="sm:hidden">预览</span>
+            <span className="sm:hidden">{t('file.preview')}</span>
           </button>
         )}
         
@@ -895,10 +1103,10 @@ const FileCard = ({
           <button
             onClick={handleOpen}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 rounded-md text-xs font-medium transition-colors"
-            title="在文件夹中显示"
+            title={t('file.showInFolder')}
           >
             <FolderOpen size={14} />
-            <span className="sm:hidden">打开</span>
+            <span className="sm:hidden">{t('file.open')}</span>
           </button>
         ) : (
           <button
@@ -958,6 +1166,8 @@ const TextCard = ({
   onCopy: (item: TextItem) => void;
   isLoggedIn: boolean;
 }) => {
+  const { lang, t } = useI18n();
+  const locale = lang === 'zh' ? 'zh-CN' : 'en-US';
   const isOwner = isLoggedIn && item.uploader === currentUser;
   const display = item.has_password ? '****' : (item.content || '');
 
@@ -967,9 +1177,9 @@ const TextCard = ({
         <div className="w-10 h-10 rounded bg-slate-50 border border-slate-100 text-slate-500 flex items-center justify-center shrink-0">
           <span className="text-[10px] font-bold uppercase text-slate-400">TXT</span>
         </div>
-        <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-medium text-slate-900 truncate pr-2" title={item.has_password ? '已加密' : (item.content || '')}>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2">
+            <h4 className="text-sm font-medium text-slate-900 truncate pr-2" title={item.has_password ? t('common.encrypted') : (item.content || '')}>
               {display}
             </h4>
             {item.has_password && (
@@ -977,9 +1187,9 @@ const TextCard = ({
             )}
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-            <span>{item.uploader || '访客'}</span>
+            <span>{item.uploader || t('common.guest')}</span>
             <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
-            <span>{formatDate(item.mtime)}</span>
+            <span>{formatDate(item.mtime, locale)}</span>
           </div>
         </div>
       </div>
@@ -989,21 +1199,21 @@ const TextCard = ({
           className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-medium transition-colors"
         >
           <Copy size={14} />
-          <span className="sm:hidden">复制</span>
+          <span className="sm:hidden">{t('common.copy')}</span>
         </button>
         {isOwner && (
           <div className="flex items-center gap-1">
             <button
               onClick={() => onSetPassword(item.id, !!item.has_password)}
               className={`p-1.5 rounded-md transition-colors ${item.has_password ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
-              title="设置密码"
+              title={t('common.setPassword')}
             >
               {item.has_password ? <Shield size={16} /> : <Unlock size={16} />}
             </button>
             <button
               onClick={() => onDelete(item.id)}
               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-              title="删除"
+              title={t('common.delete')}
             >
               <Trash2 size={16} />
             </button>
@@ -1018,29 +1228,36 @@ const SettingsModal = ({
   isOpen,
   onClose,
   config,
-  onSave
+  onSave,
+  langPreference,
+  onChangeLangPreference
 }: {
   isOpen: boolean;
   onClose: () => void;
   config: IpResponse;
-  onSave: (newConfig: Partial<IpResponse>) => void;
+  onSave: (newConfig: Partial<IpResponse>) => void | Promise<void>;
+  langPreference: LangPreference;
+  onChangeLangPreference: (p: LangPreference) => void;
 }) => {
-  const { i18n } = useTranslation();
+  const { t } = useI18n();
   const [uploadDir, setUploadDir] = useState(config.upload_dir || '');
   const [mode, setMode] = useState(config.mode || 'share');
   const [allowRemoteGroupCreate, setAllowRemoteGroupCreate] = useState<boolean>(config.allow_remote_group_create ?? true);
   const [useSourceDate, setUseSourceDate] = useState<boolean>(config.use_source_date ?? false);
+  const [languagePreference, setLanguagePreference] = useState<LangPreference>(langPreference);
 
   useEffect(() => {
     setUploadDir(config.upload_dir || '');
     setMode(config.mode || 'share');
     setAllowRemoteGroupCreate(config.allow_remote_group_create ?? true);
     setUseSourceDate(config.use_source_date ?? false);
-  }, [config]);
+    setLanguagePreference(langPreference);
+  }, [config, langPreference]);
 
   if (!isOpen) return null;
 
   const handleSave = () => {
+    onChangeLangPreference(languagePreference);
     onSave({ upload_dir: uploadDir, mode, allow_remote_group_create: allowRemoteGroupCreate, use_source_date: useSourceDate });
     onClose();
   };
@@ -1063,48 +1280,30 @@ const SettingsModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h3 className="font-bold text-slate-900">设置</h3>
+          <h3 className="font-bold text-slate-900">{t('settings.title')}</h3>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/50 transition-colors">
             <X size={20} />
           </button>
         </div>
         <div className="p-6 space-y-6">
-          {/* Language */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">语言 / Language</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => {
-                   i18n.changeLanguage('zh');
-                   localStorage.setItem('i18nextLng', 'zh');
-                }}
-                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${i18n.language === 'zh'
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.language')}</label>
+            <div className="relative">
+              <select
+                value={languagePreference}
+                onChange={(e) => setLanguagePreference(e.target.value as LangPreference)}
+                className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none"
               >
-                <span className="text-lg">🇨🇳</span>
-                中文
-              </button>
-              <button
-                onClick={() => {
-                   i18n.changeLanguage('en');
-                   localStorage.setItem('i18nextLng', 'en');
-                }}
-                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${i18n.language === 'en'
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-              >
-                <span className="text-lg">🇺🇸</span>
-                English
-              </button>
+                <option value="auto">{t('settings.lang.auto')}</option>
+                <option value="zh">{t('settings.lang.zh')}</option>
+                <option value="en">{t('settings.lang.en')}</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
             </div>
           </div>
-
           {/* Path */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">文件存储位置</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.storagePath')}</label>
             <div className="relative">
               <input
                 type="text"
@@ -1116,17 +1315,17 @@ const SettingsModal = ({
               <button
                 onClick={handleSelectFolder}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                title="选择文件夹"
+                title={t('settings.selectFolder')}
               >
                 <FolderOpen size={18} />
               </button>
             </div>
-            <p className="text-xs text-slate-500 mt-1.5 ml-1">仅本机可修改，修改后新文件将保存至此目录。</p>
+            <p className="text-xs text-slate-500 mt-1.5 ml-1">{t('settings.storageHint')}</p>
           </div>
 
           {/* Mode */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">传输模式</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.transferMode')}</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setMode('share')}
@@ -1136,7 +1335,7 @@ const SettingsModal = ({
                   }`}
               >
                 <HardDrive size={18} />
-                共享中心
+                {t('settings.mode.share')}
               </button>
               <button
                 onClick={() => setMode('oneway')}
@@ -1146,19 +1345,19 @@ const SettingsModal = ({
                   }`}
               >
                 <Upload size={18} />
-                单向传输
+                {t('settings.mode.oneway')}
               </button>
             </div>
             <p className="text-xs text-slate-500 mt-2 ml-1 leading-relaxed">
               {mode === 'share'
-                ? '共享中心模式：所有设备均可查看并下载已分享的文件。'
-                : '单向传输模式：其他设备仅可上传文件，不可查看已分享内容（仅本机可见）。'}
+                ? t('settings.mode.shareDesc')
+                : t('settings.mode.onewayDesc')}
             </p>
           </div>
 
           {/* Groups: Remote create setting */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">分组权限</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.groupPermission')}</label>
             <div 
               className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
               onClick={() => setAllowRemoteGroupCreate(v => !v)}
@@ -1166,14 +1365,14 @@ const SettingsModal = ({
               <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${allowRemoteGroupCreate ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
                  {allowRemoteGroupCreate && <CheckCircle size={14} className="text-white" />}
               </div>
-              <span className="text-sm text-slate-700">允许其他设备创建分组</span>
+              <span className="text-sm text-slate-700">{t('settings.allowRemoteCreateGroup')}</span>
             </div>
-            <p className="text-xs text-slate-500 mt-2 ml-1">仅本机可修改，关闭后其他设备将无法创建分组。</p>
+            <p className="text-xs text-slate-500 mt-2 ml-1">{t('settings.allowRemoteCreateGroupHint')}</p>
           </div>
 
           {/* Keep shooting date */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">保留图片拍摄日期</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.keepPhotoDate')}</label>
             <div 
               className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
               onClick={() => setUseSourceDate(v => !v)}
@@ -1181,16 +1380,16 @@ const SettingsModal = ({
               <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${useSourceDate ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
                  {useSourceDate && <CheckCircle size={14} className="text-white" />}
               </div>
-              <span className="text-sm text-slate-700">上传图片时，尝试将文件的创建日期设置为 EXIF 拍摄时间</span>
+              <span className="text-sm text-slate-700">{t('settings.keepPhotoDateDesc')}</span>
             </div>
           </div>
         </div>
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-            取消
+            {t('common.cancel')}
           </button>
           <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-all active:scale-95">
-            保存更改
+            {t('common.saveChanges')}
           </button>
         </div>
       </div>
@@ -1688,7 +1887,7 @@ const PreviewModal = ({
                       trimXmlDeclaration: true,
                       useBase64URL: false,
                       debug: true,
-                  })
+                  } as any)
                   .then(() => {
                       console.log('DOCX Render Success');
                       setLoading(false);
@@ -2016,8 +2215,8 @@ const PreviewModal = ({
 const ToastContext = React.createContext<{ showToast: (msg: string, type?: 'info' | 'error' | 'success') => void }>({ showToast: () => {} });
 const useToast = () => React.useContext(ToastContext);
 
-const Home = () => {
-  const { t, i18n } = useTranslation();
+const App = () => {
+  const LANG_STORAGE_KEY = 'quicksend_lang_preference';
   const [config, setConfig] = useState<IpResponse | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'info' | 'error' | 'success' } | null>(null);
   const showToast = (message: string, type: 'info' | 'error' | 'success' = 'info') => setToast({ message, type });
@@ -2065,6 +2264,31 @@ const Home = () => {
     groupId: string | null;
   }>({ open: false, groupId: null });
 
+  const [langPreference, setLangPreference] = useState<LangPreference>(() => {
+    try {
+      const saved = localStorage.getItem(LANG_STORAGE_KEY);
+      if (saved === 'auto' || saved === 'zh' || saved === 'en') return saved;
+    } catch {}
+    return 'auto';
+  });
+  const [browserLang, setBrowserLang] = useState<Lang>(() => getBrowserLang());
+  useEffect(() => {
+    const handler = () => setBrowserLang(getBrowserLang());
+    try {
+      window.addEventListener('languagechange', handler);
+      return () => window.removeEventListener('languagechange', handler);
+    } catch {
+      return;
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(LANG_STORAGE_KEY, langPreference);
+    } catch {}
+  }, [langPreference]);
+  const lang: Lang = langPreference === 'auto' ? browserLang : langPreference;
+  const t = useMemo(() => createT(lang), [lang]);
+
   const ipAddress = (() => {
     const wl = typeof window !== 'undefined' ? window.location : null;
     const host = wl ? wl.hostname : '';
@@ -2105,10 +2329,6 @@ const Home = () => {
 
   // Initialize Data and Auth
   useEffect(() => {
-    initTCB();
-    recordInstall();
-    recordDailyActive();
-
     fetch('/api/ip')
       .then(res => res.json())
       .then((data: IpResponse) => {
@@ -2285,7 +2505,7 @@ const Home = () => {
     // The prompt says: "If not logged in, cannot set file/text access password".
     // It doesn't say they cannot upload.
     // We'll send username if available, or empty.
-    formData.append('uploader', username || '访客');
+    formData.append('uploader', username || t('common.guest'));
     formData.append('group_id', (groupIdOverride || activeGroupId || 'root'));
     if (password) formData.append('password', password);
 
@@ -2305,11 +2525,6 @@ const Home = () => {
     xhr.onload = () => {
       setIsUploading(false);
       if (xhr.status === 201) {
-        // Record stats
-        let totalSize = 0;
-        for (let i = 0; i < fileList.length; i++) totalSize += fileList[i].size;
-        recordFileStats('upload', fileList.length, totalSize);
-
         fetchFiles();
         // Clear progress after short delay for better UX
         setTimeout(() => setUploadProgress(0), 500);
@@ -2329,7 +2544,7 @@ const Home = () => {
   const handleShareText = async (content: string, password?: string) => {
     const formData = new FormData();
     formData.append('content', content);
-    formData.append('uploader', username || '访客');
+    formData.append('uploader', username || t('common.guest'));
     if (password) formData.append('password', password);
     try {
       const res = await fetch('/api/texts', { method: 'POST', body: formData });
@@ -2485,7 +2700,6 @@ const Home = () => {
   };
 
   const handleDownload = (file: FileItem) => {
-    recordFileStats('download', 1, file.size);
     const downloadUrl = `/download/${encodeURIComponent(file.name)}`;
     if (file.has_password) {
       setInputModal({
@@ -2588,26 +2802,29 @@ const Home = () => {
   };
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
-    <div className="min-h-screen bg-slate-50/50 text-slate-800 font-sans selection:bg-slate-200 selection:text-slate-900 pb-12">
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onLoginSuccess={handleLoginSuccess}
-      />
-      <PreviewModal
-        isOpen={!!previewFile}
-        onClose={() => setPreviewFile(null)}
-        file={previewFile?.file || null}
-        password={previewFile?.password}
-      />
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        config={config || { ip: '', port: 0 } as IpResponse}
-        onSave={handleSaveConfig}
-      />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
+    <I18nContext.Provider value={{ lang, langPreference, setLangPreference, t }}>
+      <ToastContext.Provider value={{ showToast }}>
+      <div className="min-h-screen bg-slate-50/50 text-slate-800 font-sans selection:bg-slate-200 selection:text-slate-900 pb-12">
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onLoginSuccess={handleLoginSuccess}
+        />
+        <PreviewModal
+          isOpen={!!previewFile}
+          onClose={() => setPreviewFile(null)}
+          file={previewFile?.file || null}
+          password={previewFile?.password}
+        />
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          config={config || { ip: '', port: 0 } as IpResponse}
+          onSave={handleSaveConfig}
+          langPreference={langPreference}
+          onChangeLangPreference={setLangPreference}
+        />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
 
         <div className="flex flex-col lg:flex-row gap-8 items-start">
 
@@ -2624,7 +2841,7 @@ const Home = () => {
             />
 
             <div className="space-y-3">
-              <SectionHeader icon={Upload} title="文件传输" />
+              <SectionHeader icon={Upload} title={t('upload.section')} />
               <UploadCard
                 onUpload={handleUpload}
                 onShareText={handleShareText}
@@ -2644,7 +2861,7 @@ const Home = () => {
               <div className="flex items-center justify-between text-slate-500 mb-2">
                 <div className="flex items-center gap-2">
                   <HelpCircle size={14} />
-                  <span className="text-xs font-bold uppercase tracking-wider">帮助</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">{t('help.title')}</span>
                 </div>
                 {config?.version && (
                     <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600">v{config.version}</span>
@@ -2653,46 +2870,22 @@ const Home = () => {
               <ul className="space-y-1.5 text-xs text-slate-500 ml-1">
                 <li className="flex items-center gap-2">
                   <span className="w-1 h-1 rounded-full bg-slate-400"></span>
-                  同一 Wi-Fi 下设备可互传
+                  {t('help.tip1')}
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1 h-1 rounded-full bg-slate-400"></span>
-                  上传者可管理自己的文件
+                  {t('help.tip2')}
                 </li>
               </ul>
               <a
-                href="https://npr2t23ep2.feishu.cn/wiki/NsyVwd8x2ia3xukCP8vcxSYdnc0"
+                href="https://quicksend.chat"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 mt-3 text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors"
               >
-                软件更新&联系作者
+                {t('help.updateContact')}
                 <ExternalLink size={10} />
               </a>
-              {(['localhost', '127.0.0.1'].includes((typeof window !== 'undefined' && window.location && window.location.hostname) || '')) && (
-                <button
-                  onClick={() => {
-                    setConfirmationModal({
-                      open: true,
-                      title: '退出程序',
-                      message: '确定退出 QuickSend 吗？',
-                      confirmText: '退出',
-                      type: 'danger',
-                      onConfirm: async () => {
-                        try {
-                          await fetch('/api/exit', { method: 'POST' });
-                          try { window.open('', '_self'); } catch { }
-                          try { window.close(); } catch { }
-                          setTimeout(() => { try { window.location.replace('about:blank'); } catch { } }, 100);
-                        } catch { }
-                      }
-                    });
-                  }}
-                  className="mt-3 w-full px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded hover:bg-slate-50"
-                >
-                  退出程序（仅本机）
-                </button>
-              )}
 
               
             </div>
@@ -2702,8 +2895,8 @@ const Home = () => {
           {(!isHost && config?.mode === 'oneway') ? (
             <main className="flex-1 w-full min-w-0 flex flex-col items-center justify-center text-slate-400 py-20 bg-white rounded-2xl border border-slate-100 shadow-sm h-[calc(100vh-10rem)]">
               <Shield size={48} className="mb-4 text-slate-300" />
-              <p className="font-medium text-lg text-slate-600">当前处于单向传输模式</p>
-              <p className="text-sm mt-2 text-slate-500">仅支持上传文件，不可查看已分享内容</p>
+              <p className="font-medium text-lg text-slate-600">{t('mode.oneway.title')}</p>
+              <p className="text-sm mt-2 text-slate-500">{t('mode.oneway.desc')}</p>
             </main>
           ) : (
             <main className="flex-1 w-full min-w-0 animate-fade-in" style={{ animationDelay: '0.1s' }}>
@@ -2717,7 +2910,7 @@ const Home = () => {
                     }`}
                 >
                   <HardDrive size={16} />
-                  <span>已分享文件</span>
+                  <span>{t('tabs.files')}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded ${activeTab === 'files' ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'
                     }`}>
                     {files.length}
@@ -2732,7 +2925,7 @@ const Home = () => {
                     }`}
                 >
                   <Share2 size={16} />
-                  <span>已分享文字</span>
+                  <span>{t('tabs.texts')}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded ${activeTab === 'text' ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'
                     }`}>
                     {texts.length}
@@ -2747,7 +2940,7 @@ const Home = () => {
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { setSearchQuery(searchInput.trim()); fetchFiles(searchInput.trim()); } }}
-                      placeholder="搜索文件（支持模糊）"
+                      placeholder={t('search.placeholder')}
                       className="w-full pl-8 pr-8 h-9 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
                     <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -2760,7 +2953,7 @@ const Home = () => {
                       </button>
                     )}
                   </div>
-                  <button onClick={() => { setSearchQuery(searchInput.trim()); fetchFiles(searchInput.trim()); }} className="px-4 h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium shadow-sm transition-colors">确认搜索</button>
+                  <button onClick={() => { setSearchQuery(searchInput.trim()); fetchFiles(searchInput.trim()); }} className="px-4 h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium shadow-sm transition-colors">{t('search.confirm')}</button>
 
                   {(isHost || config?.allow_remote_group_create) && (
                     <button
@@ -2850,7 +3043,7 @@ const Home = () => {
                   ))}
                   {texts.length === 0 && (
                     <div className="text-center py-12 text-slate-400">
-                      <p>暂无分享文字</p>
+                      <p>{t('empty.texts')}</p>
                     </div>
                   )}
                 </div>
@@ -2859,29 +3052,30 @@ const Home = () => {
           )}
         </div>
       </div>
-      <InputModal
-        isOpen={inputModal.open}
-        onClose={() => setInputModal(prev => ({ ...prev, open: false }))}
-        title={inputModal.title}
-        placeholder={inputModal.placeholder}
-        defaultValue={inputModal.defaultValue}
-        isPassword={inputModal.isPassword}
-        onConfirm={inputModal.onConfirm}
-      />
-      <ConfirmationModal
-        isOpen={confirmationModal.open}
-        onClose={() => setConfirmationModal(prev => ({ ...prev, open: false }))}
-        title={confirmationModal.title}
-        message={confirmationModal.message}
-        onConfirm={confirmationModal.onConfirm}
-        confirmText={confirmationModal.confirmText}
-        cancelText={confirmationModal.cancelText}
-        type={confirmationModal.type}
-      />
-      <Toast message={toast?.message || ''} type={toast?.type} onClose={() => setToast(null)} />
-    </div>
-    </ToastContext.Provider>
+        <InputModal
+          isOpen={inputModal.open}
+          onClose={() => setInputModal(prev => ({ ...prev, open: false }))}
+          title={inputModal.title}
+          placeholder={inputModal.placeholder}
+          defaultValue={inputModal.defaultValue}
+          isPassword={inputModal.isPassword}
+          onConfirm={inputModal.onConfirm}
+        />
+        <ConfirmationModal
+          isOpen={confirmationModal.open}
+          onClose={() => setConfirmationModal(prev => ({ ...prev, open: false }))}
+          title={confirmationModal.title}
+          message={confirmationModal.message}
+          onConfirm={confirmationModal.onConfirm}
+          confirmText={confirmationModal.confirmText}
+          cancelText={confirmationModal.cancelText}
+          type={confirmationModal.type}
+        />
+        <Toast message={toast?.message || ''} type={toast?.type} onClose={() => setToast(null)} />
+      </div>
+      </ToastContext.Provider>
+    </I18nContext.Provider>
   );
 };
 
-export default Home;
+export default App;

@@ -41,6 +41,8 @@ copy /y "%SystemRoot%\System32\vccorlib140.dll" "dist\QuickSend\_internal\"
 
 echo Building 64-bit Installer...
 set "NSIS_PATH=makensis"
+if exist "D:\NSIS\makensis.exe" set "NSIS_PATH=D:\NSIS\makensis.exe"
+if exist "D:\NSIS\Bin\makensis.exe" set "NSIS_PATH=D:\NSIS\Bin\makensis.exe"
 if exist "C:\Program Files (x86)\NSIS\makensis.exe" set "NSIS_PATH=C:\Program Files (x86)\NSIS\makensis.exe"
 "%NSIS_PATH%" /INPUTCHARSET UTF8 ..\installer\QuickSend.nsi
 

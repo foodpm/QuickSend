@@ -131,19 +131,7 @@ jobs:
     - name: Run NSIS
       working-directory: quicksend/quicksend/quicksend
       run: |
-        $evt = "${{ github.event_name }}"
-        $inputTag = "${{ github.event.inputs.version_tag }}"
-        $tag = ""
-        if ($evt -eq "workflow_dispatch" -and -not [string]::IsNullOrEmpty($inputTag)) {
-          $tag = $inputTag
-        } elseif ("${{ github.ref }}".StartsWith("refs/tags/")) {
-          $tag = "${{ github.ref_name }}"
-        } else {
-          $pkg = Get-Content "static/package.json" -Raw | ConvertFrom-Json
-          $tag = "v$($pkg.version)"
-        }
-        if ($tag.StartsWith("v")) { $ver = $tag.Substring(1) } else { $ver = $tag }
-        "VERSION_NO_V=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        $evt = "${{ github.event_name }}"; $name = ""; if ($evt -eq "workflow_dispatch" -and -not [string]::IsNullOrEmpty("${{ github.event.inputs.version_tag }}")) { $name = "${{ github.event.inputs.version_tag }}"; } elseif ("${{ github.ref }}".StartsWith("refs/tags/")) { $name = "${{ github.ref_name }}"; } else { $name = "1.0.1" }; if ($name.StartsWith("v")) { $ver = $name.Substring(1) } else { $ver = $name }; echo "VERSION_NO_V=$ver" >> $env:GITHUB_ENV
         makensis /INPUTCHARSET UTF8 /DPRODUCT_VERSION=$env:VERSION_NO_V ..\..\installer\${{ matrix.nsi-script }}
 
     - name: Upload Artifact
@@ -319,13 +307,8 @@ jobs:
 
     - name: Set Version Tag
       run: |
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          if [[ -n "${{ github.event.inputs.version_tag }}" ]]; then
-            echo "VERSION_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_ENV
-          else
-            VER=$(node -p "require('./quicksend/quicksend/quicksend/static/package.json').version")
-            echo "VERSION_TAG=v${VER}" >> $GITHUB_ENV
-          fi
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.event.inputs.version_tag }}" ]]; then
+          echo "VERSION_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_ENV
         elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
           echo "VERSION_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
         else
@@ -394,17 +377,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Resolve Release Tag
-      run: |
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.event.inputs.version_tag }}" ]]; then
-          echo "RELEASE_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_ENV
-        elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-          echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-        else
-          VER=$(node -p "require('./quicksend/quicksend/quicksend/static/package.json').version")
-          echo "RELEASE_TAG=v${VER}" >> $GITHUB_ENV
-        fi
-
     - name: Download Windows x64
       uses: actions/download-artifact@v4
       with:
@@ -439,14 +411,14 @@ jobs:
     - name: Download Docker Image Tar
       uses: actions/download-artifact@v4
       with:
-        name: docker-image-${{ env.RELEASE_TAG }}
+        name: docker-image-${{ github.ref_name }}
         path: artifacts/docker
       continue-on-error: true
 
-    - name: Download Docker Image Tar (fallback latest)
+    - name: Download Docker Image Tar (manual version_tag)
       uses: actions/download-artifact@v4
       with:
-        name: docker-image-latest
+        name: docker-image-${{ github.event.inputs.version_tag }}
         path: artifacts/docker
       continue-on-error: true
 
@@ -463,8 +435,8 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ env.RELEASE_TAG }}
-        name: QuickSend ${{ env.RELEASE_TAG }}
+        tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag || github.ref_name }}
+        name: QuickSend ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version_tag || github.ref_name }}
         draft: false
         prerelease: false
         files: |

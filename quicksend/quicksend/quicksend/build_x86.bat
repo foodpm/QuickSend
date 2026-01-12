@@ -69,6 +69,8 @@ echo [4/4] Packaging installer...
 set "NSIS_PATH="
 if exist "D:\NSIS\makensis.exe" (
     set "NSIS_PATH=D:\NSIS\makensis.exe"
+) else if exist "D:\NSIS\Bin\makensis.exe" (
+    set "NSIS_PATH=D:\NSIS\Bin\makensis.exe"
 ) else if exist "D:\nsis\makensis.exe" (
     set "NSIS_PATH=D:\nsis\makensis.exe"
 ) else if exist "C:\Program Files (x86)\NSIS\makensis.exe" (
@@ -114,5 +116,5 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Success! x86 Installer created at: dist\QuickSend_Setup_x86_v6.0.exe
+echo Success! x86 Installer created at: ..\..\installer\QuickSend-Setup-1.0.6-win32.exe
 rem pause
