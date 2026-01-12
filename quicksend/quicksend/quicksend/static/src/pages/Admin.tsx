@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { getDB, initTCB } from '../utils/tcb';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import { Users, Activity, FileText, ArrowLeft, RefreshCw, Calendar } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 const Admin = () => {
   const [loading, setLoading] = useState(true);
@@ -114,9 +113,9 @@ const Admin = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/" className="p-2 bg-white rounded-lg shadow-sm hover:bg-slate-50">
+            <a href="/" className="p-2 bg-white rounded-lg shadow-sm hover:bg-slate-50">
               <ArrowLeft size={20} className="text-slate-600" />
-            </Link>
+            </a>
             <h1 className="text-2xl font-bold text-slate-800">QuickSend 数据统计</h1>
           </div>
           <button
