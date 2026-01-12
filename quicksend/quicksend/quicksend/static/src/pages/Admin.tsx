@@ -13,6 +13,7 @@ const Admin = () => {
   });
   const [dauData, setDauData] = useState<any[]>([]);
   const [fileLogs, setFileLogs] = useState<any[]>([]);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [password, setPassword] = useState('');
   const [isAuth, setIsAuth] = useState(false);
 
@@ -34,6 +35,7 @@ const Admin = () => {
       await initTCB();
       const db = getDB();
       if (!db) return;
+      const _ = db.command;
 
       const usersCount = await db.collection('quick_users').count();
 
@@ -52,7 +54,21 @@ const Admin = () => {
         totalFiles: filesCount.total
       });
 
-      const activeRes = await db.collection('quick_daily_active').orderBy('date', 'desc').limit(100).get();
+      // Filter DAU
+      let dauQuery = db.collection('quick_daily_active').orderBy('date', 'desc').limit(100);
+      if (dateRange.start || dateRange.end) {
+        const q: any = {};
+        if (dateRange.start && dateRange.end) {
+          q.date = _.gte(dateRange.start).and(_.lte(dateRange.end));
+        } else if (dateRange.start) {
+          q.date = _.gte(dateRange.start);
+        } else {
+          q.date = _.lte(dateRange.end);
+        }
+        dauQuery = db.collection('quick_daily_active').where(q).orderBy('date', 'desc').limit(100);
+      }
+      
+      const activeRes = await dauQuery.get();
 
       const dayMap: Record<string, number> = {};
       activeRes.data.forEach((item: any) => {
@@ -68,7 +84,29 @@ const Admin = () => {
 
       setDauData(chartData);
 
-      const logsRes = await db.collection('quick_file_stats').orderBy('timestamp', 'desc').limit(20).get();
+      // Filter Logs
+      let logsQuery = db.collection('quick_file_stats').orderBy('timestamp', 'desc').limit(100);
+      if (dateRange.start || dateRange.end) {
+        const q: any = {};
+        let s: Date | null = null;
+        let e: Date | null = null;
+        if (dateRange.start) s = new Date(dateRange.start);
+        if (dateRange.end) {
+           e = new Date(dateRange.end);
+           e.setHours(23, 59, 59, 999);
+        }
+        
+        if (s && e) {
+           q.timestamp = _.gte(s).and(_.lte(e));
+        } else if (s) {
+           q.timestamp = _.gte(s);
+        } else if (e) {
+           q.timestamp = _.lte(e);
+        }
+        logsQuery = db.collection('quick_file_stats').where(q).orderBy('timestamp', 'desc').limit(100);
+      }
+      
+      const logsRes = await logsQuery.get();
 
       setFileLogs(logsRes.data);
     } catch (e) {
@@ -111,20 +149,38 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <a href="/" className="p-2 bg-white rounded-lg shadow-sm hover:bg-slate-50">
               <ArrowLeft size={20} className="text-slate-600" />
             </a>
             <h1 className="text-2xl font-bold text-slate-800">QuickSend 数据统计</h1>
           </div>
-          <button
-            onClick={loadData}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            刷新数据
-          </button>
+          
+          <div className="flex items-center gap-3">
+              <div className="flex items-center bg-white rounded-lg border border-slate-200 p-1">
+                  <input 
+                      type="date" 
+                      value={dateRange.start}
+                      onChange={e => setDateRange({...dateRange, start: e.target.value})}
+                      className="px-2 py-1 text-sm border-none outline-none text-slate-600 bg-transparent"
+                  />
+                  <span className="text-slate-400">-</span>
+                  <input 
+                      type="date" 
+                      value={dateRange.end}
+                      onChange={e => setDateRange({...dateRange, end: e.target.value})}
+                      className="px-2 py-1 text-sm border-none outline-none text-slate-600 bg-transparent"
+                  />
+              </div>
+              <button
+                onClick={loadData}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                筛选 / 刷新
+              </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
