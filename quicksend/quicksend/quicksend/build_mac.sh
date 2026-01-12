@@ -83,13 +83,21 @@ if command -v npx >/dev/null 2>&1; then
     npx appdmg "$DMG_JSON" "dist/${NAME}-mac.dmg"
 else
     echo "npx not found, falling back to hdiutil..."
-    DMG_TMP="dist/${NAME}-dmg"
-    rm -rf "$DMG_TMP"
-    mkdir -p "$DMG_TMP"
-    cp -R "dist/${NAME}.app" "$DMG_TMP/"
+    DMG_TMP="$(mktemp -d)"
+    trap 'rm -rf "$DMG_TMP"' EXIT
+    ditto "dist/${NAME}.app" "$DMG_TMP/${NAME}.app"
     ln -s /Applications "$DMG_TMP/Applications" || true
-    hdiutil create -volname "$NAME" -srcfolder "$DMG_TMP" -ov -format UDZO "dist/${NAME}-mac.dmg"
-    rm -rf "$DMG_TMP"
+
+    for attempt in 1 2 3 4 5; do
+      if hdiutil create -volname "$NAME" -srcfolder "$DMG_TMP" -ov -format UDZO "dist/${NAME}-mac.dmg"; then
+        break
+      fi
+      sleep $((attempt * 3))
+    done
+
+    if [ ! -f "dist/${NAME}-mac.dmg" ]; then
+      exit 1
+    fi
 fi
 rm -f "$DMG_JSON" || true
 echo "DMG: dist/$NAME-mac.dmg"
