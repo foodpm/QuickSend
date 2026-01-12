@@ -502,15 +502,8 @@ const UserProfileCard = ({
   isHost?: boolean,
   onOpenSettings?: () => void
 }) => {
-  const { i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
-
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'zh' ? 'en' : 'zh';
-    i18n.changeLanguage(newLang);
-    localStorage.setItem('i18nextLng', newLang);
-  };
 
   const handleCopy = () => {
     if (ipAddress) {
@@ -536,14 +529,6 @@ const UserProfileCard = ({
           <span className="font-bold text-slate-900">QuickSend</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={toggleLanguage}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors flex items-center gap-1"
-            title="Switch Language"
-          >
-            <Globe size={16} />
-            <span className="text-[10px] font-bold">{i18n.language === 'zh' ? 'EN' : '中'}</span>
-          </button>
           {isHost && (
             <button
               onClick={onOpenSettings}
@@ -572,13 +557,7 @@ const UserProfileCard = ({
               <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             </div>
             {isLoggedIn ? (
-               <button
-                onClick={onLogout}
-                className="p-2 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors border border-slate-200 hover:border-red-200"
-                title="退出登录"
-               >
-                 <LogOut size={16} />
-               </button>
+               <div />
             ) : (
               <button
                 onClick={onLogin}
@@ -1046,6 +1025,7 @@ const SettingsModal = ({
   config: IpResponse;
   onSave: (newConfig: Partial<IpResponse>) => void;
 }) => {
+  const { i18n } = useTranslation();
   const [uploadDir, setUploadDir] = useState(config.upload_dir || '');
   const [mode, setMode] = useState(config.mode || 'share');
   const [allowRemoteGroupCreate, setAllowRemoteGroupCreate] = useState<boolean>(config.allow_remote_group_create ?? true);
@@ -1089,6 +1069,39 @@ const SettingsModal = ({
           </button>
         </div>
         <div className="p-6 space-y-6">
+          {/* Language */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">语言 / Language</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                   i18n.changeLanguage('zh');
+                   localStorage.setItem('i18nextLng', 'zh');
+                }}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${i18n.language === 'zh'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+              >
+                <span className="text-lg">🇨🇳</span>
+                中文
+              </button>
+              <button
+                onClick={() => {
+                   i18n.changeLanguage('en');
+                   localStorage.setItem('i18nextLng', 'en');
+                }}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${i18n.language === 'en'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+              >
+                <span className="text-lg">🇺🇸</span>
+                English
+              </button>
+            </div>
+          </div>
+
           {/* Path */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">文件存储位置</label>
