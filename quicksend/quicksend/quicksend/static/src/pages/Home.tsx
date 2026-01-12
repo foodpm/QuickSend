@@ -502,8 +502,15 @@ const UserProfileCard = ({
   isHost?: boolean,
   onOpenSettings?: () => void
 }) => {
+  const { i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'zh' ? 'en' : 'zh';
+    i18n.changeLanguage(newLang);
+    localStorage.setItem('i18nextLng', newLang);
+  };
 
   const handleCopy = () => {
     if (ipAddress) {
@@ -529,6 +536,14 @@ const UserProfileCard = ({
           <span className="font-bold text-slate-900">QuickSend</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleLanguage}
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors flex items-center gap-1"
+            title="Switch Language"
+          >
+            <Globe size={16} />
+            <span className="text-[10px] font-bold">{i18n.language === 'zh' ? 'EN' : '中'}</span>
+          </button>
           {isHost && (
             <button
               onClick={onOpenSettings}
