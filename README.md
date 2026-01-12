@@ -1,6 +1,6 @@
 # 🚀 QuickSend 使用指南
 
-各版本下载链接：https://github.com/foodpm/QuickSend/releases/tag/v1.0.5
+各版本下载链接：https://github.com/foodpm/QuickSend/releases/tag/v1.0.6
 
 ## 👥 面向人群
 - 适合普通用户，无需懂技术或命令行
