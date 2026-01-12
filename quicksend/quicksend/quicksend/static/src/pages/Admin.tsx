@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { getDB, initTCB } from '../utils/tcb';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
-import { Users, Activity, FileText, ArrowLeft, RefreshCw, Calendar } from 'lucide-react';
+import { Users, Activity, FileText, ArrowLeft, RefreshCw, Calendar, AlertCircle } from 'lucide-react';
 
 const Admin = () => {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [stats, setStats] = useState({
     totalUsers: 0,
     todayActive: 0,
@@ -31,10 +32,11 @@ const Admin = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setError('');
     try {
       await initTCB();
       const db = getDB();
-      if (!db) return;
+      if (!db) throw new Error('CloudBase initialization failed');
       const _ = db.command;
 
       const usersCount = await db.collection('quick_users').count();
@@ -109,8 +111,9 @@ const Admin = () => {
       const logsRes = await logsQuery.get();
 
       setFileLogs(logsRes.data);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || 'Failed to load data. Please check console for details.');
     } finally {
       setLoading(false);
     }
@@ -182,6 +185,13 @@ const Admin = () => {
               </button>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6 flex items-center gap-2">
+            <AlertCircle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard title="累计安装用户" value={stats.totalUsers} icon={Users} color="bg-blue-500" />

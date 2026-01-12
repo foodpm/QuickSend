@@ -1,4 +1,4 @@
-import tcb from 'tcb-js-sdk';
+import cloudbase from '@cloudbase/js-sdk';
 import { v4 as uuidv4 } from 'uuid';
 
 // Initialize TCB
@@ -15,14 +15,15 @@ export const initTCB = async () => {
   if (app) return;
 
   try {
-    app = tcb.init({
+    app = cloudbase.init({
       env: ENV_ID
     });
 
     auth = app.auth();
     
     // Anonymous login
-    if (!auth.hasLoginState()) {
+    const loginState = await auth.getLoginState();
+    if (!loginState) {
       await auth.signInAnonymously();
     }
 
