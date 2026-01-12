@@ -24,7 +24,10 @@ export default defineConfig(({ mode }) => {
         manifest: true,
         outDir: 'dist',
         rollupOptions: {
-          input: path.resolve(__dirname, 'index.html')
+          input: {
+            main: path.resolve(__dirname, 'index.html'),
+            admin: path.resolve(__dirname, 'admin.html')
+          }
         }
       }
     };
