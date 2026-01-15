@@ -134,6 +134,10 @@ const I18N: Record<Lang, Record<string, string>> = {
     'upload.chooseFile': '选择文件',
     'upload.textPlaceholder': '输入要分享的文字',
     'upload.shareText': '分享文字',
+    'texts.clearAll': '清空全部',
+    'texts.clearAllTitle': '清空全部文字',
+    'texts.clearAllMessage': '确定要清空所有分享文字吗？',
+    'texts.clearAllConfirm': '清空',
     'group.root': '根目录',
     'group.default': '分组',
     'file.previewTip': '点击预览',
@@ -217,6 +221,10 @@ const I18N: Record<Lang, Record<string, string>> = {
     'upload.chooseFile': 'Choose files',
     'upload.textPlaceholder': 'Enter text to share',
     'upload.shareText': 'Share text',
+    'texts.clearAll': 'Clear all',
+    'texts.clearAllTitle': 'Clear shared text',
+    'texts.clearAllMessage': 'Are you sure you want to clear all shared text?',
+    'texts.clearAllConfirm': 'Clear',
     'group.root': 'Root',
     'group.default': 'Group',
     'file.previewTip': 'Click to preview',
@@ -302,6 +310,17 @@ const safeCopyText = async (text: string): Promise<boolean> => {
     window.prompt('Copy failed. Please copy manually:', text);
   } catch { }
   return false;
+};
+
+const getOrCreateDeviceId = (): string => {
+  const KEY = 'quicksend_device_id';
+  const existing = (localStorage.getItem(KEY) || '').trim();
+  if (existing) return existing;
+  const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+    ? (crypto as any).randomUUID()
+    : `dev_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+  localStorage.setItem(KEY, id);
+  return id;
 };
 
 // --- Tree Helpers ---
@@ -1154,6 +1173,8 @@ const FileCard = ({
 const TextCard = ({
   item,
   currentUser,
+  currentUploaderId,
+  isHost,
   onDelete,
   onSetPassword,
   onCopy,
@@ -1161,6 +1182,8 @@ const TextCard = ({
 }: {
   item: TextItem;
   currentUser: string;
+  currentUploaderId: string;
+  isHost?: boolean;
   onDelete: (id: string) => void;
   onSetPassword: (id: string, isLocked: boolean) => void;
   onCopy: (item: TextItem) => void;
@@ -1169,6 +1192,7 @@ const TextCard = ({
   const { lang, t } = useI18n();
   const locale = lang === 'zh' ? 'zh-CN' : 'en-US';
   const isOwner = isLoggedIn && item.uploader === currentUser;
+  const canDelete = !!isHost || (!!item.uploader_id && item.uploader_id === currentUploaderId) || isOwner;
   const display = item.has_password ? '****' : (item.content || '');
 
   return (
@@ -1201,8 +1225,8 @@ const TextCard = ({
           <Copy size={14} />
           <span className="sm:hidden">{t('common.copy')}</span>
         </button>
-        {isOwner && (
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1">
+          {isOwner && (
             <button
               onClick={() => onSetPassword(item.id, !!item.has_password)}
               className={`p-1.5 rounded-md transition-colors ${item.has_password ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
@@ -1210,6 +1234,8 @@ const TextCard = ({
             >
               {item.has_password ? <Shield size={16} /> : <Unlock size={16} />}
             </button>
+          )}
+          {canDelete && (
             <button
               onClick={() => onDelete(item.id)}
               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
@@ -1217,8 +1243,8 @@ const TextCard = ({
             >
               <Trash2 size={16} />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2236,6 +2262,12 @@ const App = () => {
   const [searchInput, setSearchInput] = useState<string>('');
   const searchQueryRef = useRef(searchQuery);
   useEffect(() => { searchQueryRef.current = searchQuery; }, [searchQuery]);
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+  const currentUploaderId = useMemo(() => {
+    const u = (username || '').trim();
+    if (isLoggedIn && u) return `user:${u}`;
+    return `device:${deviceId}`;
+  }, [deviceId, isLoggedIn, username]);
   const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>({ root: true });
   const [showGroupModal, setShowGroupModal] = useState<{open: boolean, parent: string}>({ open: false, parent: 'root' });
   const [dragOverGroup, setDragOverGroup] = useState<string | null>(null);
@@ -2544,7 +2576,10 @@ const App = () => {
   const handleShareText = async (content: string, password?: string) => {
     const formData = new FormData();
     formData.append('content', content);
-    formData.append('uploader', username || t('common.guest'));
+    const uploaderName = isLoggedIn ? (username || '').trim() : t('common.guest');
+    formData.append('uploader', uploaderName);
+    formData.append('uploader_name', uploaderName);
+    formData.append('uploader_id', currentUploaderId);
     if (password) formData.append('password', password);
     try {
       const res = await fetch('/api/texts', { method: 'POST', body: formData });
@@ -2622,11 +2657,33 @@ const App = () => {
           const res = await fetch(`/api/texts/${encodeURIComponent(id)}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uploader: username })
+            body: JSON.stringify({
+              uploader: isLoggedIn ? (username || '').trim() : t('common.guest'),
+              uploader_name: isLoggedIn ? (username || '').trim() : t('common.guest'),
+              uploader_id: currentUploaderId
+            })
           });
           if (res.ok) fetchTexts();
           else showToast('删除失败：可能不是该文字的上传者', 'error');
         } catch (e) { showToast('操作失败', 'error'); }
+      }
+    });
+  };
+
+  const handleClearTexts = () => {
+    if (!isHost) return;
+    setConfirmationModal({
+      open: true,
+      title: t('texts.clearAllTitle'),
+      message: t('texts.clearAllMessage'),
+      confirmText: t('texts.clearAllConfirm'),
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/texts/clear', { method: 'DELETE' });
+          if (res.ok) fetchTexts();
+          else showToast('操作失败', 'error');
+        } catch (e) { showToast('网络错误', 'error'); }
       }
     });
   };
@@ -3030,11 +3087,25 @@ const App = () => {
               {/* Text Tab Content */}
               {activeTab === 'text' && (
                 <div className="flex flex-col gap-3 pb-20">
+                  {isHost && texts.length > 0 && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleClearTexts}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 text-slate-700 hover:text-red-600 rounded-md text-xs font-medium transition-colors"
+                        title={t('texts.clearAll')}
+                      >
+                        <Trash2 size={14} />
+                        {t('texts.clearAll')}
+                      </button>
+                    </div>
+                  )}
                   {texts.map(item => (
                     <TextCard
                       key={item.id}
                       item={item}
                       currentUser={username}
+                      currentUploaderId={currentUploaderId}
+                      isHost={isHost}
                       onDelete={handleDeleteText}
                       onSetPassword={handleSetTextPassword}
                       onCopy={handleCopyText}

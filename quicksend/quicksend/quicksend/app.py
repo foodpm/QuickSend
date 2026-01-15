@@ -92,7 +92,12 @@ app = Flask(__name__, static_folder=STATIC_FOLDER, template_folder=STATIC_FOLDER
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 * 1024  # 16GB max upload size
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-VERSION = "1.0.6"
+try:
+    app.json.ensure_ascii = False
+except Exception:
+    pass
+app.config['JSON_AS_ASCII'] = False
+VERSION = "1.0.7"
 GLOBAL_PORT = 5000
 
 
@@ -1114,7 +1119,8 @@ def handle_texts():
             data = (request.get_json(silent=True) or (request.form.to_dict() if request.form else {}) or {})
             log({'route':'/api/texts','method':'POST','is_json':bool(request.is_json),'has_form':bool(request.form),'data_keys':list(data.keys())})
             content = (data.get('content') or '').strip()
-            uploader = data.get('uploader') or ''
+            uploader_name = (data.get('uploader_name') or data.get('uploader') or '').strip()
+            uploader_id = (data.get('uploader_id') or '').strip()
             password = data.get('password') or ''
             if not content:
                 return jsonify({'error': 'no content'}), 400
@@ -1122,7 +1128,13 @@ def handle_texts():
             tid = str(int(time.time()*1000))
             while tid in meta['__texts__']:
                 tid = str(int(time.time()*1000)+1)
-            entry = {'content': content, 'uploader': uploader, 'password_hash': None, 'mtime': time.time()}
+            entry = {
+                'content': content,
+                'uploader': uploader_name,
+                'uploader_id': (uploader_id or None),
+                'password_hash': None,
+                'mtime': time.time()
+            }
             if password:
                 entry['password_hash'] = generate_password_hash(password, method='pbkdf2:sha256')
             meta['__texts__'][tid] = entry
@@ -1144,6 +1156,7 @@ def handle_texts():
         item = {
             'id': tid,
             'uploader': entry.get('uploader',''),
+            'uploader_id': entry.get('uploader_id') or None,
             'mtime': entry.get('mtime') or time.time(),
             'has_password': has_pwd
         }
@@ -1167,19 +1180,37 @@ def text_item_api(tid):
             if not pwd or not _check_password_hash(password_hash, pwd):
                 return jsonify({'error':'password required'}), 403
         return jsonify({'content': entry.get('content','')})
-    uploader = None
+    uploader_id = None
+    uploader_name = None
     if request.is_json:
         data = request.get_json(silent=True) or {}
-        uploader = data.get('uploader')
+        uploader_id = data.get('uploader_id')
+        uploader_name = data.get('uploader_name') or data.get('uploader')
     else:
-        uploader = request.form.get('uploader') or request.args.get('uploader')
-    owner = entry.get('uploader','')
-    if owner and uploader != owner and not _is_local_request():
-        return jsonify({'error':'not owner'}), 403
+        uploader_id = request.form.get('uploader_id') or request.args.get('uploader_id')
+        uploader_name = request.form.get('uploader_name') or request.form.get('uploader') or request.args.get('uploader_name') or request.args.get('uploader')
+    owner_id = entry.get('uploader_id') or ''
+    owner_name = entry.get('uploader','')
+    if not _is_local_request():
+        if owner_id:
+            if (uploader_id or '') != owner_id:
+                return jsonify({'error':'not owner'}), 403
+        elif owner_name:
+            if (uploader_name or '') != owner_name:
+                return jsonify({'error':'not owner'}), 403
     texts.pop(tid, None)
     meta['__texts__'] = texts
     save_metadata(meta)
     return jsonify({'message':'deleted'})
+
+@app.route('/api/texts/clear', methods=['DELETE'])
+def clear_texts_api():
+    if not _is_local_request():
+        return jsonify({'error':'forbidden'}), 403
+    meta = load_metadata()
+    meta['__texts__'] = {}
+    save_metadata(meta)
+    return jsonify({'message':'cleared'})
 
 @app.route('/api/texts/<path:tid>/password', methods=['POST','DELETE'])
 def set_text_password(tid):
@@ -1193,10 +1224,17 @@ def set_text_password(tid):
         log({'route':f'/api/texts/{tid}/password','method':request.method,'is_json':bool(request.is_json),'has_form':bool(request.form),'data_keys':list(data.keys())})
     except Exception:
         pass
-    uploader = data.get('uploader') or request.form.get('uploader') or request.args.get('uploader') or ''
-    owner = entry.get('uploader','')
-    if owner and uploader != owner and not _is_local_request():
-        return jsonify({'error':'not owner'}), 403
+    uploader_id = (data.get('uploader_id') or request.form.get('uploader_id') or request.args.get('uploader_id') or '')
+    uploader_name = (data.get('uploader_name') or data.get('uploader') or request.form.get('uploader_name') or request.form.get('uploader') or request.args.get('uploader_name') or request.args.get('uploader') or '')
+    owner_id = entry.get('uploader_id') or ''
+    owner_name = entry.get('uploader','')
+    if not _is_local_request():
+        if owner_id:
+            if uploader_id != owner_id:
+                return jsonify({'error':'not owner'}), 403
+        elif owner_name:
+            if uploader_name != owner_name:
+                return jsonify({'error':'not owner'}), 403
     if request.method == 'DELETE':
         entry['password_hash'] = None
         texts[tid] = entry

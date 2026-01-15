@@ -22,6 +22,7 @@ export interface TextItem {
   id: string;
   content?: string;
   uploader: string;
+  uploader_id?: string;
   mtime: number;
   has_password?: boolean;
 }

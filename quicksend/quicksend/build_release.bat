@@ -2,7 +2,7 @@
 chcp 65001 >nul
 echo ==========================================
 echo QuickSend - Full Release Build Script
-echo Version 1.0.6
+echo Version 1.0.7
 echo ==========================================
 
 set BASE_DIR=%~dp0
@@ -56,8 +56,8 @@ if exist "..\installer\*.exe" echo Installers are in ..\installer\
 echo.
 echo ==========================================
 echo BUILD SUCCESSFUL!
-echo 64-bit Installer: ..\installer\QuickSend-Setup-1.0.6-win64.exe
-echo 32-bit Installer: ..\installer\QuickSend-Setup-1.0.6-win32.exe
+echo 64-bit Installer: ..\installer\QuickSend-Setup-1.0.7-win64.exe
+echo 32-bit Installer: ..\installer\QuickSend-Setup-1.0.7-win32.exe
 echo ==========================================
 exit /b 0
 
