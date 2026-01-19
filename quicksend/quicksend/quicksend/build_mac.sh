@@ -39,7 +39,15 @@ elif [ -f logo2_.icns ]; then
 elif [ -f assets/logo.icns ]; then
   ICON_OPT="--icon=assets/logo.icns"
 fi
+ANALYTICS_DATA_OPT=""
+if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+  cat > analytics_config.json <<EOF
+{"supabase_url":"${SUPABASE_URL}","supabase_anon_key":"${SUPABASE_ANON_KEY}"}
+EOF
+  ANALYTICS_DATA_OPT='--add-data "analytics_config.json:."'
+fi
 python3 -m PyInstaller --noconfirm --clean --windowed --onedir --name "$NAME" --osx-bundle-identifier com.quicksend.app \
+  $ANALYTICS_DATA_OPT \
   --add-data "static/dist:static/dist" \
   --add-data "static/fonts:static/fonts" \
   --add-data "static/index.build.html:static" \
@@ -49,6 +57,7 @@ python3 -m PyInstaller --noconfirm --clean --windowed --onedir --name "$NAME" --
   --add-data "static/favicon.png:static" \
   --hidden-import werkzeug.security \
   $ICON_OPT app.py
+rm -f analytics_config.json || true
 
 mkdir -p dist
 DMG_JSON="dist/dmg.json"

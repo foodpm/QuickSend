@@ -3,13 +3,15 @@ import os
 import queue
 import threading
 import urllib.request
+import sys
 
 
 class SupabaseAnalytics:
     def __init__(self):
         self._enabled = str(os.environ.get('SUPABASE_ANALYTICS_ENABLED', '1')).lower() in ('1', 'true', 'yes', 'on')
-        self._url_base = (os.environ.get('SUPABASE_URL') or '').rstrip('/')
-        self._anon_key = os.environ.get('SUPABASE_ANON_KEY') or ''
+        cfg = self._load_config()
+        self._url_base = ((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '').strip()).rstrip('/')
+        self._anon_key = ((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or '').strip())
         self._schema = os.environ.get('SUPABASE_ANALYTICS_SCHEMA') or 'quicksend_analytics'
         self._table = os.environ.get('SUPABASE_ANALYTICS_TABLE') or 'events_raw_v1'
         self._q = queue.Queue(maxsize=200)
@@ -27,6 +29,41 @@ class SupabaseAnalytics:
             self._q.put_nowait(event)
         except Exception:
             pass
+
+    def _load_config(self) -> dict:
+        path = os.environ.get('QUICKSEND_ANALYTICS_CONFIG_PATH') or ''
+        candidates = []
+        if path:
+            candidates.append(path)
+        try:
+            meipass = getattr(sys, '_MEIPASS', None)
+            if meipass:
+                candidates.append(os.path.join(meipass, 'analytics_config.json'))
+        except Exception:
+            pass
+        try:
+            candidates.append(os.path.join(os.path.dirname(sys.executable), 'analytics_config.json'))
+        except Exception:
+            pass
+        try:
+            candidates.append(os.path.join(os.path.dirname(__file__), 'analytics_config.json'))
+        except Exception:
+            pass
+        try:
+            candidates.append(os.path.join(os.getcwd(), 'analytics_config.json'))
+        except Exception:
+            pass
+        for p in candidates:
+            try:
+                if not p or not os.path.exists(p):
+                    continue
+                with open(p, 'r', encoding='utf-8') as f:
+                    data = json.load(f) or {}
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                continue
+        return {}
 
     def _start_worker(self):
         if self._started:

@@ -10,6 +10,22 @@
 - `SUPABASE_PROJECT_REF`：Supabase 项目的 Project Ref（项目 Settings 页面可找到）
 - `SUPABASE_DB_PASSWORD`：该 Supabase 项目的数据库密码（Database Settings 可重置）
 - `SUPABASE_SERVICE_ROLE_KEY`：Supabase 项目的 service_role key（用于 Edge Function 写入数据库；Actions 会把它写入 Functions secrets，变量名为 `QS_SERVICE_ROLE_KEY`）
+- `SUPABASE_ANON_KEY`：Supabase 项目的 publishable/anon key（可选，用于写入 Functions secrets `QS_ANON_KEY`，当平台未提供 `SUPABASE_ANON_KEY` 时兜底）
+
+## 发布打包（用户无需配置环境变量）
+
+发布者在打包机上设置环境变量后运行构建脚本，构建脚本会临时生成 `analytics_config.json` 并打进安装包（构建结束会删除该文件，且已加入 gitignore）。
+
+- Windows（cmd）：
+  - `set SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co`
+  - `set SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY`
+  - 运行 `quicksend/quicksend/quicksend/build.bat` 或 `build_x86.bat`
+- macOS（bash）：
+  - `export SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co`
+  - `export SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY`
+  - 运行 `quicksend/quicksend/quicksend/build_mac.sh`
+
+客户端运行时会优先使用环境变量；若未设置则读取随包内置的 `analytics_config.json`。
 
 工作流文件： [.github/workflows/supabase-deploy.yml](file:///Users/xiaozhuzidepingguo/Desktop/%E4%BB%8A%E6%97%A5%E6%9C%80%E4%BD%B3/%E4%B8%AA%E4%BA%BA/quick/.github/workflows/supabase-deploy.yml)
 

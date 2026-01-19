@@ -17,6 +17,7 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       QS_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      QS_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +35,9 @@ jobs:
         run: |
           set -euo pipefail
           supabase secrets set QS_SERVICE_ROLE_KEY="$QS_SERVICE_ROLE_KEY" >/dev/null
+          if [ -n "${QS_ANON_KEY:-}" ]; then
+            supabase secrets set QS_ANON_KEY="$QS_ANON_KEY" >/dev/null
+          fi
 
       - name: Push migrations
         shell: bash

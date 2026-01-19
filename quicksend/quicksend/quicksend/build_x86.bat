@@ -45,11 +45,23 @@ echo Updating index.build.html from dist...
 copy /Y "static\dist\index.html" "static\index.build.html" >nul
 
 set NAME=QuickSend
-IF EXIST logo.ico (
-  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs --icon=logo.ico app.py
-) ELSE (
-  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs app.py
+set "ANALYTICS_DATA_OPT="
+if not "%SUPABASE_URL%"=="" if not "%SUPABASE_ANON_KEY%"=="" (
+  echo Embedding analytics_config.json for release...
+  > analytics_config.json (
+    echo { 
+    echo   "supabase_url": "%SUPABASE_URL%",
+    echo   "supabase_anon_key": "%SUPABASE_ANON_KEY%"
+    echo }
+  )
+  set "ANALYTICS_DATA_OPT=--add-data \"analytics_config.json;.\""
 )
+IF EXIST logo.ico (
+  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs --icon=logo.ico app.py
+) ELSE (
+  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs app.py
+)
+if exist analytics_config.json del /q analytics_config.json
 
 if %errorlevel% neq 0 (
     echo Build failed!

@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  const expectedAnon = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  const expectedAnon = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("QS_ANON_KEY") || "";
   if (!expectedAnon) return json({ error: "server_misconfigured" }, 500);
   const apikey = req.headers.get("apikey") || "";
   const auth = req.headers.get("authorization") || "";

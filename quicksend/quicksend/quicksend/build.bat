@@ -36,11 +36,23 @@ echo Updating index.build.html from dist...
 copy /Y "static\dist\index.html" "static\index.build.html" >nul
 echo This may take a minute...
 set NAME=QuickSend
-IF EXIST logo.ico (
-  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --icon=logo.ico app.py
-) ELSE (
-  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text app.py
+set "ANALYTICS_DATA_OPT="
+if not "%SUPABASE_URL%"=="" if not "%SUPABASE_ANON_KEY%"=="" (
+  echo Embedding analytics_config.json for release...
+  > analytics_config.json (
+    echo { 
+    echo   "supabase_url": "%SUPABASE_URL%",
+    echo   "supabase_anon_key": "%SUPABASE_ANON_KEY%"
+    echo }
+  )
+  set "ANALYTICS_DATA_OPT=--add-data \"analytics_config.json;.\""
 )
+IF EXIST logo.ico (
+  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --icon=logo.ico app.py
+) ELSE (
+  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text app.py
+)
+if exist analytics_config.json del /q analytics_config.json
 
 echo Copying missing assets manually...
 if exist "dist\%NAME%\_internal" (
