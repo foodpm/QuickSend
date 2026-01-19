@@ -183,28 +183,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Prepare Analytics Config (Embed into app)
-      working-directory: quicksend/quicksend/quicksend
-      shell: bash
-      env:
-        SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      run: |
-        set -euo pipefail
-        if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
-          echo "Missing required GitHub Secret: SUPABASE_ANON_KEY"
-          exit 1
-        fi
-        if [ -z "${SUPABASE_URL:-}" ]; then
-          if [ -z "${SUPABASE_PROJECT_REF:-}" ]; then
-            echo "Missing SUPABASE_URL and SUPABASE_PROJECT_REF (need one to build URL)"
-            exit 1
-          fi
-          SUPABASE_URL="https://${SUPABASE_PROJECT_REF}.supabase.co"
-        fi
-        printf '{"supabase_url":"%s","supabase_anon_key":"%s"}' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > analytics_config.json
-
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -236,7 +214,22 @@ jobs:
 
     - name: Build App
       working-directory: quicksend/quicksend/quicksend
+      env:
+        SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       run: |
+        set -euo pipefail
+        rm -f analytics_config.json || true
+        if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+          if [ -z "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_PROJECT_REF:-}" ]; then
+            SUPABASE_URL="https://${SUPABASE_PROJECT_REF}.supabase.co"
+          fi
+          if [ -n "${SUPABASE_URL:-}" ]; then
+            printf '{"supabase_url":"%s","supabase_anon_key":"%s"}' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > analytics_config.json
+          fi
+        fi
+
         # Create a new build script on the fly to avoid modification errors
         cat > build_mac_ci.sh <<'EOS'
         #!/usr/bin/env bash
