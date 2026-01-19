@@ -12,6 +12,7 @@ class SupabaseAnalytics:
         self._last_error = ''
         self._config_path = ''
         self._logger = None
+        self._disabled_logged = False
         cfg = self._load_config()
         self._url_base = ((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '').strip()).rstrip('/')
         self._anon_key = ((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or '').strip())
@@ -42,6 +43,19 @@ class SupabaseAnalytics:
 
     def track(self, event: dict):
         if not self.enabled():
+            if not self._disabled_logged:
+                self._disabled_logged = True
+                try:
+                    if not self._enabled:
+                        self._last_error = 'disabled_by_flag'
+                    elif not self._url_base:
+                        self._last_error = 'missing_supabase_url'
+                    elif not self._anon_key:
+                        self._last_error = 'missing_supabase_anon_key'
+                    if self._logger:
+                        self._logger(f"[Analytics] disabled: {self.status()}")
+                except Exception:
+                    pass
             return
         try:
             self._start_worker()
@@ -125,13 +139,25 @@ class SupabaseAnalytics:
         req.add_header('Authorization', f"Bearer {self._anon_key}")
         try:
             urllib.request.urlopen(req, timeout=2)
+            self._last_error = ''
         except Exception as e:
-            self._last_error = str(e)
+            try:
+                import urllib.error
+                if isinstance(e, urllib.error.HTTPError):
+                    body = ''
+                    try:
+                        body = e.read(2000).decode('utf-8', errors='replace')
+                    except Exception:
+                        body = ''
+                    self._last_error = f'http_{e.code}: {body}'.strip()
+                else:
+                    self._last_error = str(e)
+            except Exception:
+                self._last_error = str(e)
             try:
                 if self._logger:
-                    self._logger(f'[Analytics] post failed: {e}')
+                    self._logger(f'[Analytics] post failed: {self._last_error or str(e)}')
             except Exception:
                 pass
-
 
 analytics = SupabaseAnalytics()

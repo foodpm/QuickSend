@@ -227,6 +227,10 @@ try:
     analytics.set_logger(log)
 except Exception:
     pass
+try:
+    log(f"[Analytics] startup: {analytics.status()}")
+except Exception:
+    pass
 
 
 def track_event(event_name: str, props: dict = None):
