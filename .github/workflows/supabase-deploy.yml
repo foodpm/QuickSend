@@ -28,5 +28,29 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Push migrations
-        run: supabase db push
+        shell: bash
+        run: |
+          set -euo pipefail
 
+          set +e
+          out="$(supabase db push 2>&1)"
+          code=$?
+          set -e
+
+          printf '%s\n' "$out"
+
+          if [ $code -eq 0 ]; then
+            exit 0
+          fi
+
+          if ! printf '%s\n' "$out" | grep -q "Remote migration versions not found in local migrations directory"; then
+            exit 1
+          fi
+
+          ids="$(printf '%s\n' "$out" | grep -Eo '[0-9]{14}' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          if [ -z "$ids" ]; then
+            exit 1
+          fi
+
+          supabase migration repair --status reverted $ids
+          supabase db push
