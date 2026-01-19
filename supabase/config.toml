@@ -1,8 +1,7 @@
-project_id = ""
+project_id = "env(SUPABASE_PROJECT_REF)"
 
 [api]
 enabled = false
 
 [db]
 shadow_port = 0
-
