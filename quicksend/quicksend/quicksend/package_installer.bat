@@ -55,6 +55,6 @@ if %errorlevel% neq 0 (
 
 echo.
 echo Success! Installers created in ..\..\installer folder.
-echo 64-bit: ..\..\installer\QuickSend-Setup-1.0.7-win64.exe
-echo 32-bit: ..\..\installer\QuickSend-Setup-1.0.7-win32.exe
+echo 64-bit: ..\..\installer\QuickSend-Setup-1.0.8-win64.exe
+echo 32-bit: ..\..\installer\QuickSend-Setup-1.0.8-win32.exe
 pause

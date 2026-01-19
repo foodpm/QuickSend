@@ -13,6 +13,7 @@ from flask import Flask, render_template, request, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
 import ctypes
 from ctypes import wintypes
+from analytics import analytics
 
 # Fix for Windows Registry MIME type issue
 mimetypes.add_type('application/javascript', '.js')
@@ -51,6 +52,7 @@ METADATA_FILE = os.path.join(_DATA_ROOT, 'QuickSend', 'metadata.json')
 USERS_FILE = os.path.join(_DATA_ROOT, 'QuickSend', 'users.json')
 SESSIONS_FILE = os.path.join(_DATA_ROOT, 'QuickSend', 'sessions.json')
 LOG_FILE = os.path.join(_DATA_ROOT, 'QuickSend', 'log.txt')
+SESSION_ID = uuid.uuid4().hex
 
 def load_config():
     try:
@@ -70,6 +72,13 @@ def save_config(cfg):
         pass
 
 _config = load_config()
+INSTALLATION_ID = (_config.get('installation_id') or '').strip()
+INSTALLATION_CREATED = False
+if not INSTALLATION_ID:
+    INSTALLATION_ID = uuid.uuid4().hex
+    _config['installation_id'] = INSTALLATION_ID
+    save_config(_config)
+    INSTALLATION_CREATED = True
 UPLOAD_FOLDER = _config.get('upload_folder')
 if not UPLOAD_FOLDER:
     if _IS_FROZEN:
@@ -97,7 +106,7 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 GLOBAL_PORT = 5000
 
 
@@ -213,6 +222,21 @@ def log(msg):
     except Exception:
         pass
     print(msg)
+
+
+def track_event(event_name: str, props: dict = None):
+    try:
+        analytics.track({
+            'event_name': event_name,
+            'installation_id': INSTALLATION_ID,
+            'session_id': SESSION_ID,
+            'app_version': VERSION,
+            'platform': ('darwin' if sys.platform == 'darwin' else ('win' if sys.platform.startswith('win') else 'linux')),
+            'is_frozen': bool(_IS_FROZEN),
+            'props': (props or {})
+        })
+    except Exception:
+        pass
 
 def _generate_password_hash(pwd):
     from werkzeug.security import generate_password_hash as _g
@@ -1029,40 +1053,47 @@ def handle_files():
         password = request.form.get('password', '')
         group_id = (request.form.get('group_id') or 'root').strip() or 'root'
         meta = load_metadata()
-        
-        # Log the upload folder being used
-        current_upload_folder = app.config['UPLOAD_FOLDER']
-        log(f'[上传] 使用上传文件夹: {current_upload_folder}')
-        
-        for file in files:
-            if not file or file.filename == '':
-                continue
-            raw_name = file.filename or ''
-            base_name = os.path.basename(raw_name)
-            base_name = ''.join(ch for ch in base_name if ch not in '\\/:*?"<>|')
-            filename = base_name.strip()
-            if not filename or filename in ('.','..'):
-                b, e = os.path.splitext(base_name)
-                ts = str(int(time.time()*1000))
-                safe_base = (b or 'file_' + ts).strip() or ('file_' + ts)
-                safe_ext = e.replace('.', '')
-                filename = safe_base + (('.' + safe_ext) if safe_ext else '')
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(save_path)
-            if _config.get('use_source_date'):
-                apply_exif_date(save_path)
-            log(f'[上传] 文件: {filename}, 保存路径: {save_path}, 账号: "{uploader}", 密码: {"已设置" if password else "未设置"}')
-            entry = {'uploader': uploader, 'password_hash': None, 'group_id': group_id}
-            if password:
-                entry['password_hash'] = _generate_password_hash(password)
-            meta[filename] = entry
-            saved.append(filename)
-        if saved:
-            save_metadata(meta)
-            log(f'[上传] Metadata 已保存: {len(saved)} 个条目')
-            return jsonify({'message': 'ok', 'saved': saved}), 201
-        return jsonify({'error': 'No selected file'}), 400
+        total_bytes = 0
+        try:
+            current_upload_folder = app.config['UPLOAD_FOLDER']
+            log(f'[上传] 使用上传文件夹: {current_upload_folder}')
+            for file in files:
+                if not file or file.filename == '':
+                    continue
+                raw_name = file.filename or ''
+                base_name = os.path.basename(raw_name)
+                base_name = ''.join(ch for ch in base_name if ch not in '\\/:*?"<>|')
+                filename = base_name.strip()
+                if not filename or filename in ('.','..'):
+                    b, e = os.path.splitext(base_name)
+                    ts = str(int(time.time()*1000))
+                    safe_base = (b or 'file_' + ts).strip() or ('file_' + ts)
+                    safe_ext = e.replace('.', '')
+                    filename = safe_base + (('.' + safe_ext) if safe_ext else '')
+                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(save_path)
+                try:
+                    total_bytes += int(os.path.getsize(save_path))
+                except Exception:
+                    pass
+                if _config.get('use_source_date'):
+                    apply_exif_date(save_path)
+                log(f'[上传] 文件: {filename}, 保存路径: {save_path}, 账号: "{uploader}", 密码: {"已设置" if password else "未设置"}')
+                entry = {'uploader': uploader, 'password_hash': None, 'group_id': group_id}
+                if password:
+                    entry['password_hash'] = _generate_password_hash(password)
+                meta[filename] = entry
+                saved.append(filename)
+            if saved:
+                save_metadata(meta)
+                log(f'[上传] Metadata 已保存: {len(saved)} 个条目')
+                track_event('file_upload', {'status': 'success', 'file_count': len(saved), 'total_bytes': total_bytes})
+                return jsonify({'message': 'ok', 'saved': saved}), 201
+            return jsonify({'error': 'No selected file'}), 400
+        except Exception as e:
+            track_event('file_upload', {'status': 'fail', 'file_count': len(saved), 'total_bytes': total_bytes, 'error': str(e)[:200]})
+            return jsonify({'error': 'upload failed'}), 500
     
     files = []
     meta = load_metadata()
@@ -1139,12 +1170,14 @@ def handle_texts():
                 entry['password_hash'] = generate_password_hash(password, method='pbkdf2:sha256')
             meta['__texts__'][tid] = entry
             save_metadata(meta)
+            track_event('text_share', {'status': 'success', 'text_length': len(content)})
             return jsonify({'id': tid}), 201
         except Exception as e:
             try:
                 log({'route':'/api/texts','error':str(e)})
             except Exception:
                 pass
+            track_event('text_share', {'status': 'fail', 'error': str(e)[:200]})
             return jsonify({'error':'internal'}), 500
     items = []
     if _config.get('mode') == 'oneway' and not _is_local_request():
@@ -1610,6 +1643,10 @@ if __name__ == '__main__':
             log(f'[网络] 防火墙端口开放: {GLOBAL_PORT}')
     except Exception as _e:
         log(f'[网络] 尝试开放防火墙端口失败: {GLOBAL_PORT}, {str(_e)}')
+
+    if INSTALLATION_CREATED:
+        track_event('install', {'status': 'created'})
+    track_event('app_open', {'start_ms': int((time.time()-START_TIME)*1000)})
     
     log('[启动] 服务准备')
     log(f"[启动] 耗时: {int((time.time()-START_TIME)*1000)}ms, 端口: {GLOBAL_PORT}")
