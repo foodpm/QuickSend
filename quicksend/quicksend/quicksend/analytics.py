@@ -19,8 +19,8 @@ class SupabaseAnalytics:
         self._last_response_body = ''
         self._success_logged = False
         cfg = self._load_config()
-        self._url_base = ((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '').strip()).rstrip('/')
-        self._anon_key = ((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or '').strip())
+        self._url_base = self._clean_token((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '')).rstrip('/')
+        self._anon_key = self._clean_token((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or ''))
         self._schema = os.environ.get('SUPABASE_ANALYTICS_SCHEMA') or 'quicksend_analytics'
         self._table = os.environ.get('SUPABASE_ANALYTICS_TABLE') or 'events_raw_v1'
         self._q = queue.Queue(maxsize=200)
@@ -33,6 +33,19 @@ class SupabaseAnalytics:
                 self._ssl_context = ssl.create_default_context(cafile=cafile)
         except Exception:
             self._ssl_context = None
+
+    def _clean_token(self, v: str) -> str:
+        try:
+            s = (v or '').strip()
+            if len(s) >= 2 and s[0] == '`' and s[-1] == '`':
+                s = s[1:-1].strip()
+            if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+                s = s[1:-1].strip()
+            if len(s) >= 2 and s[0] == "'" and s[-1] == "'":
+                s = s[1:-1].strip()
+            return s
+        except Exception:
+            return (v or '').strip()
 
     def enabled(self) -> bool:
         return bool(self._enabled and self._url_base and self._anon_key)
@@ -152,13 +165,24 @@ class SupabaseAnalytics:
                 pass
 
     def _post(self, event: dict):
-        api = f"{self._url_base}/functions/v1/quicksend-analytics-ingest"
-        data = json.dumps(event, ensure_ascii=False).encode('utf-8')
-        req = urllib.request.Request(api, data=data, method='POST')
-        req.add_header('Content-Type', 'application/json')
-        req.add_header('Accept', 'application/json')
-        req.add_header('apikey', self._anon_key)
-        req.add_header('Authorization', f"Bearer {self._anon_key}")
+        try:
+            api = f"{self._url_base}/functions/v1/quicksend-analytics-ingest"
+            data = json.dumps(event, ensure_ascii=False).encode('utf-8')
+            req = urllib.request.Request(api, data=data, method='POST')
+            req.add_header('Content-Type', 'application/json')
+            req.add_header('Accept', 'application/json')
+            req.add_header('apikey', self._anon_key)
+            req.add_header('Authorization', f"Bearer {self._anon_key}")
+        except Exception as e:
+            self._last_response_code = None
+            self._last_response_body = ''
+            self._last_error = f'build_request_failed: {str(e)}'
+            try:
+                if self._logger:
+                    self._logger(f'[Analytics] post failed: {self._last_error}')
+            except Exception:
+                pass
+            return
         try:
             if self._ssl_context is not None:
                 resp = urllib.request.urlopen(req, timeout=5, context=self._ssl_context)

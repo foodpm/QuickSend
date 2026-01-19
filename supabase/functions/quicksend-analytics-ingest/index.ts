@@ -82,6 +82,14 @@ Deno.serve(async (req) => {
     .from("events_raw_v1")
     .insert(row);
 
-  if (error) return json({ error: "insert_failed" }, 500);
+  if (error) {
+    const details = {
+      code: safeText((error as unknown as { code?: unknown }).code, 64),
+      message: safeText((error as unknown as { message?: unknown }).message, 400),
+      details: safeText((error as unknown as { details?: unknown }).details, 400),
+      hint: safeText((error as unknown as { hint?: unknown }).hint, 200),
+    };
+    return json({ error: "insert_failed", details }, 500);
+  }
   return json({ ok: true });
 });
