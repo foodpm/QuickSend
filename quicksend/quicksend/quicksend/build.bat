@@ -14,7 +14,7 @@ echo.
 
 echo [1/4] Installing dependencies...
 pip install --upgrade pip
-pip install flask pyinstaller>=6.0 werkzeug pywebview pythonnet clr_loader jaraco.text
+pip install flask pyinstaller>=6.0 werkzeug pywebview pythonnet clr_loader jaraco.text certifi
 IF EXIST logo2.png (
   echo Converting logo2.png to logo.ico...
   pip install pillow >nul 2>&1
@@ -48,9 +48,9 @@ if not "%SUPABASE_URL%"=="" if not "%SUPABASE_ANON_KEY%"=="" (
   set "ANALYTICS_DATA_OPT=--add-data \"analytics_config.json;.\""
 )
 IF EXIST logo.ico (
-  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --icon=logo.ico app.py
+  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all certifi --icon=logo.ico app.py
 ) ELSE (
-  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text app.py
+  pyinstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all certifi app.py
 )
 if exist analytics_config.json del /q analytics_config.json
 

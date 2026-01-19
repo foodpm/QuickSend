@@ -4,6 +4,7 @@ import queue
 import threading
 import urllib.request
 import sys
+import ssl
 
 
 class SupabaseAnalytics:
@@ -13,6 +14,7 @@ class SupabaseAnalytics:
         self._config_path = ''
         self._logger = None
         self._disabled_logged = False
+        self._ssl_context = None
         cfg = self._load_config()
         self._url_base = ((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '').strip()).rstrip('/')
         self._anon_key = ((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or '').strip())
@@ -21,6 +23,13 @@ class SupabaseAnalytics:
         self._q = queue.Queue(maxsize=200)
         self._started = False
         self._lock = threading.Lock()
+        try:
+            import certifi
+            cafile = certifi.where()
+            if cafile:
+                self._ssl_context = ssl.create_default_context(cafile=cafile)
+        except Exception:
+            self._ssl_context = None
 
     def enabled(self) -> bool:
         return bool(self._enabled and self._url_base and self._anon_key)
@@ -138,7 +147,10 @@ class SupabaseAnalytics:
         req.add_header('apikey', self._anon_key)
         req.add_header('Authorization', f"Bearer {self._anon_key}")
         try:
-            urllib.request.urlopen(req, timeout=2)
+            if self._ssl_context is not None:
+                urllib.request.urlopen(req, timeout=2, context=self._ssl_context)
+            else:
+                urllib.request.urlopen(req, timeout=2)
             self._last_error = ''
         except Exception as e:
             try:

@@ -2,3 +2,4 @@ flask
 werkzeug
 Pillow
 pywebview
+certifi

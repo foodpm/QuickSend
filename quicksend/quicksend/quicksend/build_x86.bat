@@ -36,7 +36,7 @@ echo Checking architecture...
 echo.
 echo [1/4] Installing dependencies...
 "%PYTHON_X86%" -m pip install --upgrade pip
-"%PYTHON_X86%" -m pip install flask pyinstaller>=6.0 werkzeug pywebview pillow jaraco.text
+"%PYTHON_X86%" -m pip install flask pyinstaller>=6.0 werkzeug pywebview pillow jaraco.text certifi
 
 echo.
 echo [2/4] Building executable...
@@ -57,9 +57,9 @@ if not "%SUPABASE_URL%"=="" if not "%SUPABASE_ANON_KEY%"=="" (
   set "ANALYTICS_DATA_OPT=--add-data \"analytics_config.json;.\""
 )
 IF EXIST logo.ico (
-  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs --icon=logo.ico app.py
+  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs --collect-all certifi --icon=logo.ico app.py
 ) ELSE (
-  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs app.py
+  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-datas jaraco.text --collect-all platformdirs --collect-all certifi app.py
 )
 if exist analytics_config.json del /q analytics_config.json
 

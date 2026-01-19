@@ -108,7 +108,7 @@ jobs:
     - name: Install Dependencies
       working-directory: quicksend/quicksend/quicksend
       run: |
-        pip install flask "pyinstaller>=6.0" werkzeug pywebview pillow jaraco.text pythonnet clr_loader
+        pip install flask "pyinstaller>=6.0" werkzeug pywebview pillow jaraco.text pythonnet clr_loader certifi
         pip install platformdirs
 
     - name: Generate Icon
@@ -125,7 +125,7 @@ jobs:
     - name: Run PyInstaller
       working-directory: quicksend/quicksend/quicksend
       run: |
-        pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "analytics_config.json;." --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all platformdirs --icon=logo.ico app.py
+        pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "analytics_config.json;." --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all platformdirs --collect-all certifi --icon=logo.ico app.py
 
     - name: Post-Build Copy (Fix missing files)
       working-directory: quicksend/quicksend/quicksend
@@ -296,6 +296,7 @@ jobs:
           --add-data "static/script.js:static" \
           --add-data "static/favicon.ico:static" \
           --add-data "static/favicon.png:static" \
+          --collect-all certifi \
           --hidden-import werkzeug.security \
           $ICON_OPT app.py
 

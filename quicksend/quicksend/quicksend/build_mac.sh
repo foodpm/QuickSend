@@ -55,6 +55,7 @@ python3 -m PyInstaller --noconfirm --clean --windowed --onedir --name "$NAME" --
   --add-data "static/script.js:static" \
   --add-data "static/favicon.ico:static" \
   --add-data "static/favicon.png:static" \
+  --collect-all certifi \
   --hidden-import werkzeug.security \
   $ICON_OPT app.py
 rm -f analytics_config.json || true
