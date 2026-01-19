@@ -259,6 +259,22 @@ def analytics_status():
     except Exception:
         return jsonify({'status': {'enabled': False}})
 
+
+@app.post('/api/analytics/test')
+def analytics_test():
+    try:
+        return jsonify(analytics.post_now({
+            'event_name': 'app_open',
+            'installation_id': INSTALLATION_ID,
+            'session_id': SESSION_ID,
+            'app_version': VERSION,
+            'platform': ('darwin' if sys.platform == 'darwin' else ('win' if sys.platform.startswith('win') else 'linux')),
+            'is_frozen': bool(_IS_FROZEN),
+            'props': {'source': 'manual_test'},
+        }))
+    except Exception:
+        return jsonify({'ok': False, 'status': {'enabled': False}})
+
 def _generate_password_hash(pwd):
     from werkzeug.security import generate_password_hash as _g
     return _g(pwd, method='pbkdf2:sha256')

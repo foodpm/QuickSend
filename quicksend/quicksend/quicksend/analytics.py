@@ -15,6 +15,9 @@ class SupabaseAnalytics:
         self._logger = None
         self._disabled_logged = False
         self._ssl_context = None
+        self._last_response_code = None
+        self._last_response_body = ''
+        self._success_logged = False
         cfg = self._load_config()
         self._url_base = ((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '').strip()).rstrip('/')
         self._anon_key = ((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or '').strip())
@@ -39,13 +42,18 @@ class SupabaseAnalytics:
 
     def status(self) -> dict:
         try:
+            api_url = (f"{self._url_base}/functions/v1/quicksend-analytics-ingest" if self._url_base else '')
             return {
                 'enabled': bool(self.enabled()),
                 'enabled_flag': bool(self._enabled),
                 'has_supabase_url': bool(self._url_base),
                 'has_anon_key': bool(self._anon_key),
+                'supabase_url': (self._url_base or ''),
+                'api_url': api_url,
                 'config_path': (self._config_path or ''),
                 'last_error': (self._last_error or ''),
+                'last_response_code': self._last_response_code,
+                'last_response_body': (self._last_response_body or '')[:500],
             }
         except Exception:
             return {'enabled': False}
@@ -90,6 +98,11 @@ class SupabaseAnalytics:
         try:
             if sys.platform == 'darwin':
                 candidates.append(os.path.realpath(os.path.join(os.path.dirname(sys.executable), '..', 'Resources', 'analytics_config.json')))
+        except Exception:
+            pass
+        try:
+            if sys.platform == 'darwin':
+                candidates.append(os.path.realpath(os.path.join(os.path.dirname(sys.executable), '..', 'Frameworks', 'analytics_config.json')))
         except Exception:
             pass
         try:
@@ -148,10 +161,24 @@ class SupabaseAnalytics:
         req.add_header('Authorization', f"Bearer {self._anon_key}")
         try:
             if self._ssl_context is not None:
-                urllib.request.urlopen(req, timeout=2, context=self._ssl_context)
+                resp = urllib.request.urlopen(req, timeout=5, context=self._ssl_context)
             else:
-                urllib.request.urlopen(req, timeout=2)
+                resp = urllib.request.urlopen(req, timeout=5)
+            try:
+                self._last_response_code = getattr(resp, 'status', None) or getattr(resp, 'getcode', lambda: None)()
+            except Exception:
+                self._last_response_code = None
+            try:
+                self._last_response_body = resp.read(2000).decode('utf-8', errors='replace')
+            except Exception:
+                self._last_response_body = ''
             self._last_error = ''
+            if (not self._success_logged) and self._logger:
+                self._success_logged = True
+                try:
+                    self._logger(f"[Analytics] post ok: code={self._last_response_code}, body={self._last_response_body[:200]}")
+                except Exception:
+                    pass
         except Exception as e:
             try:
                 import urllib.error
@@ -161,15 +188,38 @@ class SupabaseAnalytics:
                         body = e.read(2000).decode('utf-8', errors='replace')
                     except Exception:
                         body = ''
+                    try:
+                        self._last_response_code = getattr(e, 'code', None)
+                        self._last_response_body = body
+                    except Exception:
+                        pass
                     self._last_error = f'http_{e.code}: {body}'.strip()
                 else:
+                    self._last_response_code = None
+                    self._last_response_body = ''
                     self._last_error = str(e)
             except Exception:
+                self._last_response_code = None
+                self._last_response_body = ''
                 self._last_error = str(e)
             try:
                 if self._logger:
                     self._logger(f'[Analytics] post failed: {self._last_error or str(e)}')
             except Exception:
                 pass
+
+    def post_now(self, event: dict) -> dict:
+        try:
+            self._post(event)
+            return {
+                'ok': (self._last_error == ''),
+                'status': self.status(),
+            }
+        except Exception as e:
+            self._last_error = str(e)
+            return {
+                'ok': False,
+                'status': self.status(),
+            }
 
 analytics = SupabaseAnalytics()
