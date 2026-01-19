@@ -290,12 +290,12 @@ jobs:
 
         # 4. PyInstaller Build
         echo "Running PyInstaller..."
-        ANALYTICS_DATA_OPT=""
+        ANALYTICS_DATA_ARGS=()
         if [ -f analytics_config.json ]; then
-          ANALYTICS_DATA_OPT='--add-data "analytics_config.json:."'
+          ANALYTICS_DATA_ARGS=(--add-data "analytics_config.json:.")
         fi
         python3 -m PyInstaller --clean --windowed --onedir --name "$NAME" --osx-bundle-identifier com.quicksend.app \
-          $ANALYTICS_DATA_OPT \
+          "${ANALYTICS_DATA_ARGS[@]}" \
           --add-data "static/dist:static/dist" \
           --add-data "static/fonts:static/fonts" \
           --add-data "static/index.build.html:static" \
