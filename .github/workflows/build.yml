@@ -67,6 +67,27 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Prepare Analytics Config (Embed into installer)
+      working-directory: quicksend/quicksend/quicksend
+      shell: pwsh
+      env:
+        SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: |
+        $anon = $env:SUPABASE_ANON_KEY
+        if ([string]::IsNullOrEmpty($anon)) { throw "Missing required GitHub Secret: SUPABASE_ANON_KEY" }
+
+        $url = $env:SUPABASE_URL
+        if ([string]::IsNullOrEmpty($url)) {
+          if ([string]::IsNullOrEmpty($env:SUPABASE_PROJECT_REF)) { throw "Missing SUPABASE_URL and SUPABASE_PROJECT_REF (need one to build URL)" }
+          $url = "https://$($env:SUPABASE_PROJECT_REF).supabase.co"
+        }
+
+        @{ supabase_url = $url; supabase_anon_key = $anon } |
+          ConvertTo-Json -Compress |
+          Out-File -Encoding utf8 analytics_config.json
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -104,7 +125,7 @@ jobs:
     - name: Run PyInstaller
       working-directory: quicksend/quicksend/quicksend
       run: |
-        pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all platformdirs --icon=logo.ico app.py
+        pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "analytics_config.json;." --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all platformdirs --icon=logo.ico app.py
 
     - name: Post-Build Copy (Fix missing files)
       working-directory: quicksend/quicksend/quicksend
@@ -121,6 +142,7 @@ jobs:
         if [ -f "logo.ico" ]; then
             cp logo.ico dist/QuickSend/
         fi
+        rm -f analytics_config.json || true
 
     - name: Setup NSIS
       run: |
@@ -160,6 +182,28 @@ jobs:
             python-arch: 'arm64'
     steps:
     - uses: actions/checkout@v4
+
+    - name: Prepare Analytics Config (Embed into app)
+      working-directory: quicksend/quicksend/quicksend
+      shell: bash
+      env:
+        SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: |
+        set -euo pipefail
+        if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+          echo "Missing required GitHub Secret: SUPABASE_ANON_KEY"
+          exit 1
+        fi
+        if [ -z "${SUPABASE_URL:-}" ]; then
+          if [ -z "${SUPABASE_PROJECT_REF:-}" ]; then
+            echo "Missing SUPABASE_URL and SUPABASE_PROJECT_REF (need one to build URL)"
+            exit 1
+          fi
+          SUPABASE_URL="https://${SUPABASE_PROJECT_REF}.supabase.co"
+        fi
+        printf '{"supabase_url":"%s","supabase_anon_key":"%s"}' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > analytics_config.json
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -246,7 +290,12 @@ jobs:
 
         # 4. PyInstaller Build
         echo "Running PyInstaller..."
+        ANALYTICS_DATA_OPT=""
+        if [ -f analytics_config.json ]; then
+          ANALYTICS_DATA_OPT='--add-data "analytics_config.json:."'
+        fi
         python3 -m PyInstaller --clean --windowed --onedir --name "$NAME" --osx-bundle-identifier com.quicksend.app \
+          $ANALYTICS_DATA_OPT \
           --add-data "static/dist:static/dist" \
           --add-data "static/fonts:static/fonts" \
           --add-data "static/index.build.html:static" \
@@ -283,6 +332,7 @@ jobs:
 
         chmod +x build_mac_ci.sh
         ./build_mac_ci.sh
+        rm -f analytics_config.json || true
         
         # Rename dmg to include architecture
         if [ -f "dist/QuickSend-mac.dmg" ]; then
