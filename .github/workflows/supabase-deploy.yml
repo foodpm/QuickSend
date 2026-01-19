@@ -16,6 +16,8 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,6 +28,16 @@ jobs:
 
       - name: Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Set function secrets
+        if: env.SUPABASE_SERVICE_ROLE_KEY != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase secrets set SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" >/dev/null
+          if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+            supabase secrets set SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" >/dev/null
+          fi
 
       - name: Push migrations
         shell: bash
@@ -54,3 +66,9 @@ jobs:
 
           supabase migration repair --status reverted $ids
           supabase db push
+
+      - name: Deploy functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase functions deploy quicksend-analytics-ingest

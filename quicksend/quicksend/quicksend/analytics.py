@@ -54,18 +54,14 @@ class SupabaseAnalytics:
                 pass
 
     def _post(self, event: dict):
-        api = f"{self._url_base}/rest/v1/{self._table}"
+        api = f"{self._url_base}/functions/v1/quicksend-analytics-ingest"
         data = json.dumps(event, ensure_ascii=False).encode('utf-8')
         req = urllib.request.Request(api, data=data, method='POST')
         req.add_header('Content-Type', 'application/json')
         req.add_header('Accept', 'application/json')
-        req.add_header('Prefer', 'return=minimal')
         req.add_header('apikey', self._anon_key)
         req.add_header('Authorization', f"Bearer {self._anon_key}")
-        req.add_header('Content-Profile', self._schema)
-        req.add_header('Accept-Profile', self._schema)
         urllib.request.urlopen(req, timeout=2)
 
 
 analytics = SupabaseAnalytics()
-

@@ -5,3 +5,6 @@ enabled = false
 
 [db]
 shadow_port = 0
+
+[functions.quicksend-analytics-ingest]
+verify_jwt = false
