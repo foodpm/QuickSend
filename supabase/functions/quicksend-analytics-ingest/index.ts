@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
   if (!installation_id) return json({ error: "missing_installation_id" }, 400);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const serviceRoleKey = Deno.env.get("QS_SERVICE_ROLE_KEY") || "";
   if (!supabaseUrl || !serviceRoleKey) return json({ error: "server_misconfigured" }, 500);
 
   const client = createClient(supabaseUrl, serviceRoleKey, {

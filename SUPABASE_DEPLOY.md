@@ -9,8 +9,7 @@
 - `SUPABASE_ACCESS_TOKEN`：Supabase 账号的 Access Token（Dashboard → Account → Access Tokens 创建）
 - `SUPABASE_PROJECT_REF`：Supabase 项目的 Project Ref（项目 Settings 页面可找到）
 - `SUPABASE_DB_PASSWORD`：该 Supabase 项目的数据库密码（Database Settings 可重置）
-- `SUPABASE_SERVICE_ROLE_KEY`：Supabase 项目的 service_role key（用于 Edge Function 写入数据库，只放在 GitHub Secrets 与 Supabase Functions secrets）
-- `SUPABASE_ANON_KEY`：Supabase 项目的 publishable/anon key（用于 Edge Function 校验请求来源，可放 GitHub Secrets）
+- `SUPABASE_SERVICE_ROLE_KEY`：Supabase 项目的 service_role key（用于 Edge Function 写入数据库；Actions 会把它写入 Functions secrets，变量名为 `QS_SERVICE_ROLE_KEY`）
 
 工作流文件： [.github/workflows/supabase-deploy.yml](file:///Users/xiaozhuzidepingguo/Desktop/%E4%BB%8A%E6%97%A5%E6%9C%80%E4%BD%B3/%E4%B8%AA%E4%BA%BA/quick/.github/workflows/supabase-deploy.yml)
 
