@@ -223,6 +223,11 @@ def log(msg):
         pass
     print(msg)
 
+try:
+    analytics.set_logger(log)
+except Exception:
+    pass
+
 
 def track_event(event_name: str, props: dict = None):
     try:
@@ -237,6 +242,18 @@ def track_event(event_name: str, props: dict = None):
         })
     except Exception:
         pass
+
+
+@app.get('/api/analytics/status')
+def analytics_status():
+    try:
+        return jsonify({
+            'installation_id': INSTALLATION_ID,
+            'session_id': SESSION_ID,
+            'status': analytics.status(),
+        })
+    except Exception:
+        return jsonify({'status': {'enabled': False}})
 
 def _generate_password_hash(pwd):
     from werkzeug.security import generate_password_hash as _g

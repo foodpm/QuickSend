@@ -9,6 +9,9 @@ import sys
 class SupabaseAnalytics:
     def __init__(self):
         self._enabled = str(os.environ.get('SUPABASE_ANALYTICS_ENABLED', '1')).lower() in ('1', 'true', 'yes', 'on')
+        self._last_error = ''
+        self._config_path = ''
+        self._logger = None
         cfg = self._load_config()
         self._url_base = ((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '').strip()).rstrip('/')
         self._anon_key = ((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or '').strip())
@@ -20,6 +23,22 @@ class SupabaseAnalytics:
 
     def enabled(self) -> bool:
         return bool(self._enabled and self._url_base and self._anon_key)
+
+    def set_logger(self, logger):
+        self._logger = logger
+
+    def status(self) -> dict:
+        try:
+            return {
+                'enabled': bool(self.enabled()),
+                'enabled_flag': bool(self._enabled),
+                'has_supabase_url': bool(self._url_base),
+                'has_anon_key': bool(self._anon_key),
+                'config_path': (self._config_path or ''),
+                'last_error': (self._last_error or ''),
+            }
+        except Exception:
+            return {'enabled': False}
 
     def track(self, event: dict):
         if not self.enabled():
@@ -46,6 +65,11 @@ class SupabaseAnalytics:
         except Exception:
             pass
         try:
+            if sys.platform == 'darwin':
+                candidates.append(os.path.realpath(os.path.join(os.path.dirname(sys.executable), '..', 'Resources', 'analytics_config.json')))
+        except Exception:
+            pass
+        try:
             candidates.append(os.path.join(os.path.dirname(__file__), 'analytics_config.json'))
         except Exception:
             pass
@@ -60,6 +84,7 @@ class SupabaseAnalytics:
                 with open(p, 'r', encoding='utf-8') as f:
                     data = json.load(f) or {}
                 if isinstance(data, dict):
+                    self._config_path = p
                     return data
             except Exception:
                 continue
@@ -98,7 +123,15 @@ class SupabaseAnalytics:
         req.add_header('Accept', 'application/json')
         req.add_header('apikey', self._anon_key)
         req.add_header('Authorization', f"Bearer {self._anon_key}")
-        urllib.request.urlopen(req, timeout=2)
+        try:
+            urllib.request.urlopen(req, timeout=2)
+        except Exception as e:
+            self._last_error = str(e)
+            try:
+                if self._logger:
+                    self._logger(f'[Analytics] post failed: {e}')
+            except Exception:
+                pass
 
 
 analytics = SupabaseAnalytics()
