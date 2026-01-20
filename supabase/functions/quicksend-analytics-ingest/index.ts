@@ -1,4 +1,17 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => unknown;
+  env: { get: (key: string) => string | undefined };
+};
+const SUPABASE_JS_URL = "https://esm.sh/@supabase/supabase-js@2";
+let _createClient: ((...args: any[]) => any) | null = null;
+const getCreateClient = async (): Promise<(...args: any[]) => any> => {
+  if (_createClient) return _createClient;
+  const mod = (await import(SUPABASE_JS_URL)) as any;
+  const fn = mod?.createClient;
+  if (!fn) throw new Error("missing_createClient");
+  _createClient = fn;
+  return fn;
+};
 
 type IncomingEvent = {
   event_name?: string;
@@ -32,7 +45,7 @@ const safeText = (v: unknown, maxLen: number) => {
   return s.length > maxLen ? s.slice(0, maxLen) : s;
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -59,6 +72,7 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get("QS_SERVICE_ROLE_KEY") || "";
   if (!supabaseUrl || !serviceRoleKey) return json({ error: "server_misconfigured" }, 500);
 
+  const createClient = await getCreateClient();
   const client = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
