@@ -5,6 +5,7 @@ import threading
 import urllib.request
 import sys
 import ssl
+import hashlib
 
 
 class SupabaseAnalytics:
@@ -18,9 +19,13 @@ class SupabaseAnalytics:
         self._last_response_code = None
         self._last_response_body = ''
         self._success_logged = False
+        self._last_request_method = None
+        self._last_request_url = ''
+        self._last_request_has_apikey = False
+        self._last_request_has_authorization = False
         cfg = self._load_config()
-        self._url_base = self._clean_token((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or '')).rstrip('/')
-        self._anon_key = self._clean_token((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or ''))
+        self._url_base = self._normalize_supabase_url((os.environ.get('SUPABASE_URL') or cfg.get('supabase_url') or ''))
+        self._anon_key = self._normalize_anon_key((os.environ.get('SUPABASE_ANON_KEY') or cfg.get('supabase_anon_key') or ''))
         self._schema = os.environ.get('SUPABASE_ANALYTICS_SCHEMA') or 'quicksend_analytics'
         self._table = os.environ.get('SUPABASE_ANALYTICS_TABLE') or 'events_raw_v1'
         self._q = queue.Queue(maxsize=200)
@@ -34,24 +39,43 @@ class SupabaseAnalytics:
         except Exception:
             self._ssl_context = None
 
-    def _clean_token(self, v: str) -> str:
-        try:
-            s = (v or '').strip()
-            if len(s) >= 2 and s[0] == '`' and s[-1] == '`':
-                s = s[1:-1].strip()
-            if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
-                s = s[1:-1].strip()
-            if len(s) >= 2 and s[0] == "'" and s[-1] == "'":
-                s = s[1:-1].strip()
-            return s
-        except Exception:
-            return (v or '').strip()
-
     def enabled(self) -> bool:
         return bool(self._enabled and self._url_base and self._anon_key)
 
     def set_logger(self, logger):
         self._logger = logger
+
+    def _strip_wrapping_quotes(self, s: str) -> str:
+        v = (s or '').strip()
+        for _ in range(2):
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+                v = v[1:-1].strip()
+        return v
+
+    def _normalize_supabase_url(self, raw: str) -> str:
+        v = self._strip_wrapping_quotes(raw)
+        v = v.rstrip('/')
+        for marker in ('/functions/v1/', '/functions/'):
+            i = v.find(marker)
+            if i != -1:
+                v = v[:i].rstrip('/')
+                break
+        return v
+
+    def _normalize_anon_key(self, raw: str) -> str:
+        v = self._strip_wrapping_quotes(raw)
+        if v.lower().startswith('bearer '):
+            v = v[7:].strip()
+        return v
+
+    def _anon_key_fingerprint(self) -> str:
+        try:
+            if not self._anon_key:
+                return ''
+            h = hashlib.sha256(self._anon_key.encode('utf-8', errors='ignore')).hexdigest()
+            return h[:12]
+        except Exception:
+            return ''
 
     def status(self) -> dict:
         try:
@@ -61,10 +85,16 @@ class SupabaseAnalytics:
                 'enabled_flag': bool(self._enabled),
                 'has_supabase_url': bool(self._url_base),
                 'has_anon_key': bool(self._anon_key),
+                'anon_key_fingerprint': self._anon_key_fingerprint(),
+                'anon_key_len': (len(self._anon_key) if self._anon_key else 0),
                 'supabase_url': (self._url_base or ''),
                 'api_url': api_url,
                 'config_path': (self._config_path or ''),
                 'last_error': (self._last_error or ''),
+                'last_request_method': self._last_request_method,
+                'last_request_url': (self._last_request_url or ''),
+                'last_request_has_apikey': bool(self._last_request_has_apikey),
+                'last_request_has_authorization': bool(self._last_request_has_authorization),
                 'last_response_code': self._last_response_code,
                 'last_response_body': (self._last_response_body or '')[:500],
             }
@@ -165,24 +195,17 @@ class SupabaseAnalytics:
                 pass
 
     def _post(self, event: dict):
-        try:
-            api = f"{self._url_base}/functions/v1/quicksend-analytics-ingest"
-            data = json.dumps(event, ensure_ascii=False).encode('utf-8')
-            req = urllib.request.Request(api, data=data, method='POST')
-            req.add_header('Content-Type', 'application/json')
-            req.add_header('Accept', 'application/json')
-            req.add_header('apikey', self._anon_key)
-            req.add_header('Authorization', f"Bearer {self._anon_key}")
-        except Exception as e:
-            self._last_response_code = None
-            self._last_response_body = ''
-            self._last_error = f'build_request_failed: {str(e)}'
-            try:
-                if self._logger:
-                    self._logger(f'[Analytics] post failed: {self._last_error}')
-            except Exception:
-                pass
-            return
+        api = f"{self._url_base}/functions/v1/quicksend-analytics-ingest"
+        self._last_request_method = 'POST'
+        self._last_request_url = api
+        data = json.dumps(event, ensure_ascii=False).encode('utf-8')
+        req = urllib.request.Request(api, data=data, method='POST')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Accept', 'application/json')
+        req.add_header('apikey', self._anon_key)
+        req.add_header('Authorization', f"Bearer {self._anon_key}")
+        self._last_request_has_apikey = bool(self._anon_key)
+        self._last_request_has_authorization = bool(self._anon_key)
         try:
             if self._ssl_context is not None:
                 resp = urllib.request.urlopen(req, timeout=5, context=self._ssl_context)
@@ -205,8 +228,8 @@ class SupabaseAnalytics:
                     pass
         except Exception as e:
             try:
-                import urllib.error
-                if isinstance(e, urllib.error.HTTPError):
+                import urllib.error as urllib_error
+                if isinstance(e, urllib_error.HTTPError):
                     body = ''
                     try:
                         body = e.read(2000).decode('utf-8', errors='replace')

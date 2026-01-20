@@ -106,7 +106,7 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 GLOBAL_PORT = 5000
 
 

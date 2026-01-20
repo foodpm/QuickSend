@@ -1,12 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
+
+datas = [('static/dist', 'static/dist'), ('static/fonts', 'static/fonts'), ('static/index.build.html', 'static'), ('static/index.html', 'static'), ('static/script.js', 'static'), ('static/favicon.ico', 'static'), ('static/favicon.png', 'static')]
+binaries = []
+hiddenimports = ['werkzeug.security']
+tmp_ret = collect_all('certifi')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[],
-    datas=[('static/dist', 'static/dist'), ('static/fonts', 'static/fonts'), ('static/index.build.html', 'static'), ('static/index.html', 'static'), ('static/script.js', 'static'), ('static/favicon.ico', 'static'), ('static/favicon.png', 'static')],
-    hiddenimports=['werkzeug.security'],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
