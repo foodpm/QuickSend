@@ -35,6 +35,25 @@ const safeText = (v: unknown, maxLen: number) => {
   return s.length > maxLen ? s.slice(0, maxLen) : s;
 };
 
+const getGeoCountry = (headers: Headers): string | null => {
+  const candidates = [
+    "x-vercel-ip-country",
+    "cf-ipcountry",
+    "cloudfront-viewer-country",
+    "x-appengine-country",
+    "x-country",
+    "x-geo-country",
+    "x-client-country",
+  ];
+  for (const key of candidates) {
+    const raw = headers.get(key);
+    if (!raw) continue;
+    const v = raw.trim().toUpperCase();
+    if (v.length === 2 && /^[A-Z]{2}$/.test(v)) return v;
+  }
+  return null;
+};
+
 Deno.serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { status: 204 });
@@ -67,7 +86,11 @@ Deno.serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get("QS_SERVICE_ROLE_KEY") || "";
     if (!supabaseUrl || !serviceRoleKey) return json({ error: "server_misconfigured" }, 500);
 
-    const props = (payload.props && typeof payload.props === "object") ? payload.props : {};
+    const geoCountry = getGeoCountry(req.headers);
+    const baseProps = (payload.props && typeof payload.props === "object") ? payload.props : {};
+    const props = (geoCountry && (baseProps as Record<string, unknown>).geo_country === undefined)
+      ? { ...(baseProps as Record<string, unknown>), geo_country: geoCountry }
+      : baseProps;
     const propsStr = JSON.stringify(props);
     if (propsStr.length > 16_000) return json({ error: "props_too_large" }, 413);
 

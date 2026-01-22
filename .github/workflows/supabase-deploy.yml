@@ -72,3 +72,21 @@ jobs:
         run: |
           set -euo pipefail
           supabase functions deploy quicksend-analytics-ingest
+
+      - name: Smoke test edge function
+        if: env.QS_ANON_KEY != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/quicksend-analytics-ingest"
+          body='{"event_name":"app_open","installation_id":"ci_geo_smoke"}'
+          code="$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${QS_ANON_KEY}" \
+            -H "Authorization: Bearer ${QS_ANON_KEY}" \
+            -H "x-client-country: CN" \
+            --data "$body" \
+            "$url")"
+          cat /tmp/resp.json
+          test "$code" = "200"
+          grep -q '"ok":true' /tmp/resp.json
