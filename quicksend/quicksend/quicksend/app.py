@@ -1109,6 +1109,16 @@ def handle_files():
                     filename = safe_base + (('.' + safe_ext) if safe_ext else '')
                 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
                 save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                if os.path.exists(save_path):
+                    b, e = os.path.splitext(filename)
+                    ts = str(int(time.time() * 1000))
+                    candidate = f"{b}_{ts}{e}"
+                    save_path = os.path.join(app.config['UPLOAD_FOLDER'], candidate)
+                    while os.path.exists(save_path):
+                        ts = str(int(time.time() * 1000))
+                        candidate = f"{b}_{ts}{e}"
+                        save_path = os.path.join(app.config['UPLOAD_FOLDER'], candidate)
+                    filename = candidate
                 file.save(save_path)
                 try:
                     total_bytes += int(os.path.getsize(save_path))

@@ -42,7 +42,8 @@ import {
   Info,
   Pencil,
   Pin,
-  PinOff
+  PinOff,
+  Camera
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { renderAsync } from 'docx-preview';
@@ -88,6 +89,7 @@ const I18N: Record<Lang, Record<string, string>> = {
     'profile.showQr': '展示二维码',
     'profile.lanHint': '在同一 Wi-Fi 下的设备浏览器中输入此地址即可互传文件。',
     'settings.title': '设置',
+    'settings.cameraUpload': '拍照上传',
     'settings.language': '语言',
     'settings.lang.auto': '跟随浏览器',
     'settings.lang.zh': '简体中文',
@@ -175,6 +177,7 @@ const I18N: Record<Lang, Record<string, string>> = {
     'profile.showQr': 'Show QR code',
     'profile.lanHint': 'Open this address on devices in the same Wi‑Fi to transfer files.',
     'settings.title': 'Settings',
+    'settings.cameraUpload': 'Take Photo & Upload',
     'settings.language': 'Language',
     'settings.lang.auto': 'Follow browser',
     'settings.lang.zh': '简体中文',
@@ -389,9 +392,9 @@ const flattenTree = (nodes: GroupTreeItem[]): GroupTreeItem[] => {
 
 const Toast = ({ message, type = 'info', onClose }: { message: string, type?: 'info' | 'error' | 'success', onClose: () => void }) => {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
+      const timer = setTimeout(onClose, 3000);
+      return () => clearTimeout(timer);
+    }, [onClose]);
 
   if (!message) return null;
 
@@ -1266,6 +1269,7 @@ const SettingsModal = ({
   onChangeLangPreference: (p: LangPreference) => void;
 }) => {
   const { t } = useI18n();
+ 
   const [uploadDir, setUploadDir] = useState(config.upload_dir || '');
   const [mode, setMode] = useState(config.mode || 'share');
   const [allowRemoteGroupCreate, setAllowRemoteGroupCreate] = useState<boolean>(config.allow_remote_group_create ?? true);
@@ -1312,6 +1316,11 @@ const SettingsModal = ({
           </button>
         </div>
         <div className="p-6 space-y-6">
+          {/* Mobile Camera Upload */}
+          <div className="block lg:hidden">
+            {/* Removed from Settings */}
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.language')}</label>
             <div className="relative">
@@ -2858,6 +2867,15 @@ const App = () => {
       setDeleteGroupModal({ open: true, groupId: id });
   };
 
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCameraUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleUpload(e.target.files);
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+    }
+  };
+
   return (
     <I18nContext.Provider value={{ lang, langPreference, setLangPreference, t }}>
       <ToastContext.Provider value={{ showToast }}>
@@ -2899,6 +2917,7 @@ const App = () => {
 
             <div className="space-y-3">
               <SectionHeader icon={Upload} title={t('upload.section')} />
+              
               <UploadCard
                 onUpload={handleUpload}
                 onShareText={handleShareText}
@@ -2910,11 +2929,35 @@ const App = () => {
                 selectedGroupId={activeGroupId}
                 onChangeGroup={(id) => setActiveGroupId(id)}
               />
+
+              {/* Mobile Camera Upload */}
+              <div className="block lg:hidden mt-3">
+                <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    className="hidden" 
+                    ref={cameraInputRef}
+                    onChange={handleCameraUpload}
+                />
+                <button
+                    onClick={() => {
+                      if (cameraInputRef.current) {
+                        cameraInputRef.current.value = '';
+                        cameraInputRef.current.click();
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-xl font-medium transition-all"
+                >
+                    <Camera size={20} />
+                    {t('settings.cameraUpload')}
+                </button>
+              </div>
             </div>
 
             
 
-            <div className="bg-slate-100 rounded-xl p-4 border border-slate-200/50">
+            <div className="bg-slate-100 rounded-xl p-4 border border-slate-200/50 hidden lg:block">
               <div className="flex items-center justify-between text-slate-500 mb-2">
                 <div className="flex items-center gap-2">
                   <HelpCircle size={14} />
@@ -3122,6 +3165,41 @@ const App = () => {
             </main>
           )}
         </div>
+
+        {/* Mobile Help Section (Bottom) */}
+        <div className="mt-8 lg:hidden">
+            <div className="bg-slate-100 rounded-xl p-4 border border-slate-200/50">
+              <div className="flex items-center justify-between text-slate-500 mb-2">
+                <div className="flex items-center gap-2">
+                  <HelpCircle size={14} />
+                  <span className="text-xs font-bold uppercase tracking-wider">{t('help.title')}</span>
+                </div>
+                {config?.version && (
+                    <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600">v{config.version}</span>
+                )}
+              </div>
+              <ul className="space-y-1.5 text-xs text-slate-500 ml-1">
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-slate-400"></span>
+                  {t('help.tip1')}
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-slate-400"></span>
+                  {t('help.tip2')}
+                </li>
+              </ul>
+              <a
+                href="https://quicksend.chat"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 mt-3 text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors"
+              >
+                {t('help.updateContact')}
+                <ExternalLink size={10} />
+              </a>
+            </div>
+        </div>
+
       </div>
         <InputModal
           isOpen={inputModal.open}

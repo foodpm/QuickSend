@@ -33,6 +33,7 @@ yarn-error.log
 
 # Project specific
 node_env/
+supabase/.temp/
 quicksend/installer/*.exe
 quicksend/quicksend/quicksend/dist/
 quicksend/quicksend/quicksend/build/
