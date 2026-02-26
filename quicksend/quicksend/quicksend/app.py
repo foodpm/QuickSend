@@ -9,7 +9,7 @@ import subprocess
 import zipfile
 import mimetypes
 from datetime import datetime
-from flask import Flask, render_template, request, send_from_directory, jsonify
+from flask import Flask, render_template, request, send_from_directory, jsonify, redirect
 from werkzeug.utils import secure_filename
 import ctypes
 from ctypes import wintypes
@@ -106,8 +106,14 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.9"
+VERSION = "1.0.10"
 GLOBAL_PORT = 5000
+
+def make_diag_code():
+    try:
+        return f"QS-{SESSION_ID[:6]}-{int(time.time()*1000):x}".upper()
+    except Exception:
+        return f"QS-{int(time.time()*1000):x}".upper()
 
 
 def get_local_ip():
@@ -703,9 +709,34 @@ def user_logout():
 @app.route('/api/log', methods=['POST'])
 def client_log():
     data = request.get_json(silent=True) or {}
-    msg = data.get('message')
-    if msg:
-        log(f"[CLIENT] {msg}")
+    try:
+        payload = {
+            'diag_code': data.get('diag_code') or data.get('diag') or None,
+            'level': (data.get('level') or 'info'),
+            'where': (data.get('where') or data.get('source') or None),
+            'message': (data.get('message') or data.get('msg') or ''),
+            'data': (data.get('data') or {}),
+            'url': (data.get('url') or None),
+            'user_agent': (data.get('user_agent') or request.headers.get('User-Agent')),
+            'installation_id': INSTALLATION_ID,
+            'session_id': SESSION_ID,
+            'app_version': VERSION,
+            'ip': request.remote_addr,
+        }
+        log("[CLIENT] " + json.dumps(payload, ensure_ascii=False))
+        try:
+            if payload.get('diag_code') and payload.get('level') in ('error', 'fatal'):
+                track_event('client_error', {
+                    'diag_code': payload.get('diag_code'),
+                    'where': payload.get('where'),
+                    'message': (payload.get('message') or '')[:200],
+                })
+        except Exception:
+            pass
+    except Exception:
+        msg = data.get('message')
+        if msg:
+            log(f"[CLIENT] {msg}")
     return jsonify({'status': 'ok'})
 
 @app.route('/api/user/me', methods=['POST'])
@@ -739,6 +770,29 @@ def debug_write():
 @app.route('/api/version')
 def api_version():
     return jsonify({'version': VERSION})
+
+@app.get('/api/diag')
+def api_diag():
+    dist_index = os.path.join(STATIC_FOLDER, 'dist', 'index.html')
+    assets_dir = os.path.join(STATIC_FOLDER, 'dist', 'assets')
+    try:
+        assets = []
+        if os.path.isdir(assets_dir):
+            assets = sorted(os.listdir(assets_dir))[:200]
+    except Exception:
+        assets = []
+    return jsonify({
+        'version': VERSION,
+        'installation_id': INSTALLATION_ID,
+        'session_id': SESSION_ID,
+        'is_frozen': bool(_IS_FROZEN),
+        'base_dir': BASE_DIR,
+        'data_root': _DATA_ROOT,
+        'static_folder': STATIC_FOLDER,
+        'dist_index_exists': os.path.exists(dist_index),
+        'dist_assets_dir_exists': os.path.isdir(assets_dir),
+        'dist_assets_sample': assets,
+    })
 
 
 @app.route('/')
@@ -787,6 +841,15 @@ def index():
         pass
     return resp
 
+@app.route('/dist')
+@app.route('/dist/')
+def dist_root():
+    return redirect('/dist/index.html', code=302)
+
+@app.route('/dist/index.html')
+def dist_index():
+    return index()
+
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     response = send_from_directory(STATIC_FOLDER, filename)
@@ -816,6 +879,50 @@ def serve_root_static(filename):
             response.headers['Content-Type'] = 'text/css; charset=utf-8'
         return response
     return send_from_directory(STATIC_FOLDER, filename)
+
+@app.errorhandler(404)
+def handle_404(e):
+    diag = make_diag_code()
+    try:
+        log("[HTTP404] " + json.dumps({
+            'diag_code': diag,
+            'path': request.path,
+            'method': request.method,
+            'ip': request.remote_addr,
+            'ua': request.headers.get('User-Agent'),
+        }, ensure_ascii=False))
+    except Exception:
+        pass
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'not found', 'diag_code': diag}), 404
+    try:
+        if request.method == 'GET' and request.accept_mimetypes and request.accept_mimetypes.accept_html:
+            p = request.path or ''
+            if (not p.startswith('/api/')) and (not p.startswith('/dist/assets/')) and (not p.startswith('/static/')) and (not p.startswith('/cache/')) and (not p.startswith('/download/')):
+                last = p.rsplit('/', 1)[-1]
+                if '.' not in last:
+                    return index()
+    except Exception:
+        pass
+    return (f"404 Not Found. 诊断码：{diag}", 404)
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    diag = make_diag_code()
+    try:
+        log("[HTTP500] " + json.dumps({
+            'diag_code': diag,
+            'path': request.path,
+            'method': request.method,
+            'ip': request.remote_addr,
+            'ua': request.headers.get('User-Agent'),
+            'error': str(e)[:500],
+        }, ensure_ascii=False))
+    except Exception:
+        pass
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'internal', 'diag_code': diag}), 500
+    return (f"发生错误。诊断码：{diag}", 500)
 
 @app.route('/favicon.ico')
 def favicon():

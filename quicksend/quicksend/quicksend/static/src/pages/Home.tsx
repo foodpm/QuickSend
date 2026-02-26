@@ -1269,6 +1269,7 @@ const SettingsModal = ({
   onChangeLangPreference: (p: LangPreference) => void;
 }) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
  
   const [uploadDir, setUploadDir] = useState(config.upload_dir || '');
   const [mode, setMode] = useState(config.mode || 'share');
@@ -1302,7 +1303,13 @@ const SettingsModal = ({
         // Ignore cancellation
       }
     } catch (e) {
-      console.error(e);
+      const diag = `QS-${Date.now().toString(16)}`.toUpperCase();
+      showToast(`选择文件夹失败（诊断码：${diag}）`, 'error');
+      fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'error', diag_code: diag, where: 'select_folder', message: (e as any)?.message || String(e) })
+      }).catch(() => {});
     }
   };
 
@@ -1651,10 +1658,22 @@ const GroupCreateModal = ({
         onCreated();
         onClose();
       } else {
-        showToast(data.error || '创建失败', 'error');
+        const diag = `QS-${Date.now().toString(16)}`.toUpperCase();
+        showToast(`${data.error || '创建失败'}（诊断码：${diag}）`, 'error');
+        fetch('/api/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ level: 'error', diag_code: diag, where: 'group_create', message: `HTTP ${res.status}`, data })
+        }).catch(() => {});
       }
     } catch {
-      showToast('网络错误', 'error');
+      const diag = `QS-${Date.now().toString(16)}`.toUpperCase();
+      showToast(`网络错误（诊断码：${diag}）`, 'error');
+      fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'error', diag_code: diag, where: 'group_create', message: 'network error' })
+      }).catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -1928,8 +1947,13 @@ const PreviewModal = ({
                       setLoading(false);
                   })
                   .catch(e => {
-                      console.error('DOCX Render Error', e);
-                      setError('预览失败: ' + e.message);
+                      const diag = `QS-${Date.now().toString(16)}`.toUpperCase();
+                      setError(`预览失败（诊断码：${diag}）：${e?.message || String(e)}`);
+                      fetch('/api/log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ level: 'error', diag_code: diag, where: 'preview_docx', message: e?.message || String(e), data: { file: file?.name } })
+                      }).catch(() => {});
                   });
                }
             })
@@ -1958,8 +1982,13 @@ const PreviewModal = ({
                    }
                    setLoading(false);
                } catch (err: any) {
-                   console.error('XLSX Render Error', err);
-                   setError('Excel解析失败: ' + err.message);
+                   const diag = `QS-${Date.now().toString(16)}`.toUpperCase();
+                   setError(`Excel解析失败（诊断码：${diag}）：${err?.message || String(err)}`);
+                   fetch('/api/log', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ level: 'error', diag_code: diag, where: 'preview_xlsx', message: err?.message || String(err), data: { file: file?.name } })
+                   }).catch(() => {});
                }
             })
             .catch(e => setError('加载失败: ' + e.message));
@@ -2368,6 +2397,49 @@ const App = () => {
      }
   };
 
+  const toastCooldownRef = useRef<Record<string, number>>({});
+  const makeDiagCode = () => {
+    try {
+      const did = (deviceId || '').slice(0, 6) || 'DEV';
+      return `QS-${did}-${Date.now().toString(16)}`.toUpperCase();
+    } catch {
+      return `QS-${Date.now().toString(16)}`.toUpperCase();
+    }
+  };
+
+  const postClientLog = (payload: any) => {
+    try {
+      fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payload,
+          url: (typeof window !== 'undefined' ? window.location.href : ''),
+          user_agent: (typeof navigator !== 'undefined' ? navigator.userAgent : '')
+        })
+      }).catch(() => {});
+    } catch {}
+  };
+
+  const notifyError = (where: string, err: any, extra?: any, userMsg?: string) => {
+    const diag = makeDiagCode();
+    const key = `${where}`;
+    const now = Date.now();
+    const last = toastCooldownRef.current[key] || 0;
+    toastCooldownRef.current[key] = now;
+    if (now - last > 30000) {
+      showToast(`${userMsg || '发生异常'}（诊断码：${diag}）`, 'error');
+    }
+    postClientLog({
+      level: 'error',
+      diag_code: diag,
+      where,
+      message: (err && (err.message || String(err))) || 'unknown error',
+      data: extra || {}
+    });
+    return diag;
+  };
+
   // Initialize Data and Auth
   useEffect(() => {
     fetch('/api/ip')
@@ -2384,61 +2456,75 @@ const App = () => {
         }
         setConfig(data);
       })
-      .catch(console.error);
+      .catch((err) => notifyError('init:/api/ip', err));
 
     // Check Token
     const token = localStorage.getItem('token');
-    
-    const logToServer = (msg: string) => {
-      fetch('/api/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg })
-      }).catch(() => {});
-    };
 
-    logToServer(`App mounted. Token exists: ${!!token}`);
+    postClientLog({ level: 'info', where: 'app_mount', message: `App mounted. Token exists: ${!!token}` });
+
+    const onWinError = (event: any) => {
+      const msg = (event && (event.message || event.error?.message || String(event.error))) || 'window error';
+      notifyError('window.error', msg, {
+        filename: event?.filename,
+        lineno: event?.lineno,
+        colno: event?.colno
+      }, '页面运行异常');
+    };
+    const onRejection = (event: any) => {
+      const reason = event?.reason;
+      notifyError('window.unhandledrejection', reason || 'unhandledrejection', {}, '页面运行异常');
+    };
+    try {
+      window.addEventListener('error', onWinError);
+      window.addEventListener('unhandledrejection', onRejection as any);
+    } catch {}
 
     if (token) {
-      logToServer(`Verifying token: ${token.substring(0, 8)}...`);
+      postClientLog({ level: 'info', where: 'auth', message: `Verifying token: ${token.substring(0, 8)}...` });
       fetch('/api/user/me', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
       })
       .then(res => {
-        logToServer(`Auth response status: ${res.status}`);
+        postClientLog({ level: 'info', where: 'auth', message: `Auth response status: ${res.status}` });
         if (res.ok) return res.json();
         if (res.status === 401) {
           // Explicitly invalid token
-          logToServer("Token invalid (401), clearing.");
+          postClientLog({ level: 'info', where: 'auth', message: "Token invalid (401), clearing." });
           localStorage.removeItem('token');
           setIsLoggedIn(false);
         }
         throw new Error(`auth failed with status ${res.status}`);
       })
       .then(data => {
-        logToServer(`Auth success for user: ${data.username}`);
+        postClientLog({ level: 'info', where: 'auth', message: `Auth success for user: ${data.username}` });
         setIsLoggedIn(true);
         setUsername(data.username);
         localStorage.setItem('last_username', data.username);
       })
       .catch((err) => {
-        logToServer(`Auth check error: ${err}`);
-        console.error("Auth check error:", err);
+        notifyError('auth_check', err, {}, '登录状态检查失败');
         // Do NOT wipe token on network errors or other failures
         // Just don't log in automatically this time
         setIsLoggedIn(false);
       });
     } else {
-      logToServer("No token in localStorage");
+      postClientLog({ level: 'info', where: 'auth', message: "No token in localStorage" });
       setIsLoggedIn(false);
     }
 
     const load = () => { fetchFiles(); fetchTexts(); fetchGroups(); };
     load();
     const interval = setInterval(load, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      try {
+        window.removeEventListener('error', onWinError);
+        window.removeEventListener('unhandledrejection', onRejection as any);
+      } catch {}
+    };
   }, []);
 
   const handleLoginSuccess = (token: string, user: string) => {
@@ -2458,7 +2544,7 @@ const App = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
         });
-      } catch (e) { console.error(e); }
+      } catch (e) { notifyError('logout', e, {}, '退出登录失败'); }
     }
     localStorage.removeItem('token');
     setIsLoggedIn(false);
@@ -2481,9 +2567,11 @@ const App = () => {
         // reload files if path changed
         fetchFiles();
       } else {
-        showToast('设置保存失败', 'error');
+        const diag = makeDiagCode();
+        showToast(`设置保存失败（诊断码：${diag}）`, 'error');
+        postClientLog({ level: 'error', diag_code: diag, where: 'save_config', message: `HTTP ${res.status}` });
       }
-    } catch { showToast('网络错误', 'error'); }
+    } catch (e) { notifyError('save_config', e, newConfig, '网络错误'); }
   };
 
   const fetchFiles = async (queryOverride?: string) => {
@@ -2493,6 +2581,12 @@ const App = () => {
       if (q.trim()) params.set('q', q.trim());
       // Removed group_id filtering to ensure all files are loaded for the tree view
       const res = await fetch(`/api/files?${params.toString()}`);
+      if (!res.ok) {
+        const diag = makeDiagCode();
+        showToast(`加载文件失败（诊断码：${diag}）`, 'error');
+        postClientLog({ level: 'error', diag_code: diag, where: 'fetch_files', message: `HTTP ${res.status}` });
+        return;
+      }
       const data = await res.json();
       data.sort((a: FileItem, b: FileItem) => (b.mtime || 0) - (a.mtime || 0));
       setFiles(prev => {
@@ -2500,14 +2594,18 @@ const App = () => {
         const newSig = JSON.stringify(data);
         return prevSig === newSig ? prev : data;
       });
-    } catch (err) {
-      console.error("Failed to load files", err);
-    }
+    } catch (err) { notifyError('fetch_files', err, {}, '加载文件失败'); }
   };
 
   const fetchGroups = async () => {
     try {
       const res = await fetch('/api/groups');
+      if (!res.ok) {
+        const diag = makeDiagCode();
+        showToast(`加载分组失败（诊断码：${diag}）`, 'error');
+        postClientLog({ level: 'error', diag_code: diag, where: 'fetch_groups', message: `HTTP ${res.status}` });
+        return;
+      }
       const data = await res.json();
       setGroups(prev => {
         const prevSig = JSON.stringify(prev);
@@ -2515,14 +2613,18 @@ const App = () => {
         return prevSig === newSig ? prev : data;
       });
       setGroupExpanded(prev => ({ root: true, ...prev }));
-    } catch (err) {
-      console.error('Failed to load groups', err);
-    }
+    } catch (err) { notifyError('fetch_groups', err, {}, '加载分组失败'); }
   };
 
   const fetchTexts = async () => {
     try {
       const res = await fetch('/api/texts');
+      if (!res.ok) {
+        const diag = makeDiagCode();
+        showToast(`加载文字失败（诊断码：${diag}）`, 'error');
+        postClientLog({ level: 'error', diag_code: diag, where: 'fetch_texts', message: `HTTP ${res.status}` });
+        return;
+      }
       const data = await res.json();
       data.sort((a: TextItem, b: TextItem) => (b.mtime || 0) - (a.mtime || 0));
       setTexts(prev => {
@@ -2530,9 +2632,7 @@ const App = () => {
         const newSig = JSON.stringify(data);
         return prevSig === newSig ? prev : data;
       });
-    } catch (err) {
-      console.error('Failed to load texts', err);
-    }
+    } catch (err) { notifyError('fetch_texts', err, {}, '加载文字失败'); }
   };
 
   const handleUpload = (fileList: FileList, password?: string, groupIdOverride?: string) => {
@@ -2570,13 +2670,15 @@ const App = () => {
         // Clear progress after short delay for better UX
         setTimeout(() => setUploadProgress(0), 500);
       } else {
-        showToast('上传失败', 'error');
+        const diag = makeDiagCode();
+        showToast(`上传失败（诊断码：${diag}）`, 'error');
+        postClientLog({ level: 'error', diag_code: diag, where: 'upload_file', message: `HTTP ${xhr.status}`, data: { response: (xhr.responseText || '').slice(0, 500) } });
       }
     };
 
     xhr.onerror = () => {
       setIsUploading(false);
-      showToast('网络错误', 'error');
+      notifyError('upload_file', 'network error', {}, '网络错误');
     };
 
     xhr.send(formData);
@@ -2595,9 +2697,12 @@ const App = () => {
       if (res.status === 201) {
         fetchTexts();
       } else {
-        showToast('分享失败', 'error');
+        const diag = makeDiagCode();
+        showToast(`分享失败（诊断码：${diag}）`, 'error');
+        const body = await res.text().catch(() => '');
+        postClientLog({ level: 'error', diag_code: diag, where: 'share_text', message: `HTTP ${res.status}`, data: { body: body.slice(0, 500) } });
       }
-    } catch (e) { showToast('网络错误', 'error'); }
+    } catch (e) { notifyError('share_text', e, {}, '网络错误'); }
   };
 
   const handleDelete = (fileName: string) => {
@@ -2615,8 +2720,13 @@ const App = () => {
             body: JSON.stringify({ uploader: username })
           });
           if (res.ok) fetchFiles();
-          else showToast('删除失败：可能不是该文件的上传者', 'error');
-        } catch (e) { showToast('操作失败', 'error'); }
+          else {
+            const diag = makeDiagCode();
+            showToast(`删除失败：可能不是该文件的上传者（诊断码：${diag}）`, 'error');
+            const body = await res.text().catch(() => '');
+            postClientLog({ level: 'error', diag_code: diag, where: 'delete_file', message: `HTTP ${res.status}`, data: { file: fileName, body: body.slice(0, 500) } });
+          }
+        } catch (e) { notifyError('delete_file', e, { file: fileName }, '操作失败'); }
       }
     });
   };
@@ -2646,8 +2756,13 @@ const App = () => {
                 })
               });
               if (res.ok) fetchFiles();
-              else showToast('操作失败', 'error');
-            } catch (e) { showToast('网络错误', 'error'); }
+              else {
+                const diag = makeDiagCode();
+                showToast(`操作失败（诊断码：${diag}）`, 'error');
+                const body = await res.text().catch(() => '');
+                postClientLog({ level: 'error', diag_code: diag, where: 'file_password', message: `HTTP ${res.status}`, data: { file: fileName, body: body.slice(0, 500) } });
+              }
+            } catch (e) { notifyError('file_password', e, { file: fileName }, '网络错误'); }
         }
     });
   };
@@ -2673,8 +2788,13 @@ const App = () => {
             })
           });
           if (res.ok) fetchTexts();
-          else showToast('删除失败：可能不是该文字的上传者', 'error');
-        } catch (e) { showToast('操作失败', 'error'); }
+          else {
+            const diag = makeDiagCode();
+            showToast(`删除失败：可能不是该文字的上传者（诊断码：${diag}）`, 'error');
+            const body = await res.text().catch(() => '');
+            postClientLog({ level: 'error', diag_code: diag, where: 'delete_text', message: `HTTP ${res.status}`, data: { id, body: body.slice(0, 500) } });
+          }
+        } catch (e) { notifyError('delete_text', e, { id }, '操作失败'); }
       }
     });
   };
@@ -2691,8 +2811,13 @@ const App = () => {
         try {
           const res = await fetch('/api/texts/clear', { method: 'DELETE' });
           if (res.ok) fetchTexts();
-          else showToast('操作失败', 'error');
-        } catch (e) { showToast('网络错误', 'error'); }
+          else {
+            const diag = makeDiagCode();
+            showToast(`操作失败（诊断码：${diag}）`, 'error');
+            const body = await res.text().catch(() => '');
+            postClientLog({ level: 'error', diag_code: diag, where: 'clear_texts', message: `HTTP ${res.status}`, data: { body: body.slice(0, 500) } });
+          }
+        } catch (e) { notifyError('clear_texts', e, {}, '网络错误'); }
       }
     });
   };
@@ -2719,8 +2844,13 @@ const App = () => {
                 body: JSON.stringify({ uploader: username, ...(!isClear && { password: newPwd.trim() }) })
               });
               if (res.ok) fetchTexts();
-              else showToast('操作失败', 'error');
-            } catch (e) { showToast('网络错误', 'error'); }
+              else {
+                const diag = makeDiagCode();
+                showToast(`操作失败（诊断码：${diag}）`, 'error');
+                const body = await res.text().catch(() => '');
+                postClientLog({ level: 'error', diag_code: diag, where: 'text_password', message: `HTTP ${res.status}`, data: { id, body: body.slice(0, 500) } });
+              }
+            } catch (e) { notifyError('text_password', e, { id }, '网络错误'); }
         }
     });
   };
@@ -2740,12 +2870,17 @@ const App = () => {
         showToast('分组更新成功', 'success');
         fetchGroups();
       } else {
-        const data = await res.json();
-        showToast(data.error || '更新失败', 'error');
+        const diag = makeDiagCode();
+        const body = await res.text().catch(() => '');
+        let msg = '更新失败';
+        try {
+          const data = JSON.parse(body || '{}');
+          msg = data?.error || msg;
+        } catch {}
+        showToast(`${msg}（诊断码：${diag}）`, 'error');
+        postClientLog({ level: 'error', diag_code: diag, where: 'update_group', message: `HTTP ${res.status}`, data: { gid, body: body.slice(0, 500) } });
       }
-    } catch {
-      showToast('网络错误', 'error');
-    }
+    } catch (e) { notifyError('update_group', e, { gid }, '网络错误'); }
   };
 
   const handlePinGroup = async (gid: string, isPinned: boolean) => {
@@ -2758,11 +2893,12 @@ const App = () => {
       if (res.ok) {
         fetchGroups();
       } else {
-        showToast('操作失败', 'error');
+        const diag = makeDiagCode();
+        showToast(`操作失败（诊断码：${diag}）`, 'error');
+        const body = await res.text().catch(() => '');
+        postClientLog({ level: 'error', diag_code: diag, where: 'pin_group', message: `HTTP ${res.status}`, data: { gid, body: body.slice(0, 500) } });
       }
-    } catch {
-      showToast('网络错误', 'error');
-    }
+    } catch (e) { notifyError('pin_group', e, { gid }, '网络错误'); }
   };
 
   const handleDownload = (file: FileItem) => {
@@ -2814,10 +2950,16 @@ const App = () => {
          onConfirm: async (pwd) => {
              try {
                 const res = await fetch(`/api/texts/${encodeURIComponent(item.id)}?password=${encodeURIComponent(pwd)}`);
-                if (!res.ok) { showToast('密码错误或复制失败', 'error'); return; }
+                if (!res.ok) {
+                  const diag = makeDiagCode();
+                  showToast(`密码错误或复制失败（诊断码：${diag}）`, 'error');
+                  const body = await res.text().catch(() => '');
+                  postClientLog({ level: 'error', diag_code: diag, where: 'copy_text', message: `HTTP ${res.status}`, data: { id: item.id, body: body.slice(0, 500) } });
+                  return;
+                }
                 const data = await res.json();
                 safeCopyText(data.content || '').then(() => showToast('文字已复制到剪贴板', 'success'));
-             } catch { showToast('网络错误', 'error'); }
+             } catch (e) { notifyError('copy_text', e, { id: item.id }, '网络错误'); }
          }
        });
     } else {
@@ -2844,12 +2986,13 @@ const App = () => {
              setGroupExpanded(prev => ({ ...prev, [targetGroupId]: true }));
              fetchFiles();
          } else {
-             showToast('移动失败', 'error');
+             const diag = makeDiagCode();
+             showToast(`移动失败（诊断码：${diag}）`, 'error');
+             const body = await res.text().catch(() => '');
+             postClientLog({ level: 'error', diag_code: diag, where: 'move_file_group', message: `HTTP ${res.status}`, data: { group_id: targetGroupId, file: o.name, body: body.slice(0, 500) } });
          }
       }
-    } catch (err) {
-        console.error(err);
-    }
+    } catch (err) { notifyError('move_file_group', err, { group_id: targetGroupId }, '移动失败'); }
   };
 
   const handleHideGroup = async (id: string, hidden: boolean) => {
@@ -2860,7 +3003,7 @@ const App = () => {
               body: JSON.stringify({hidden}) 
           }); 
           if (r.ok) fetchGroups(); 
-      } catch {}
+      } catch (e) { notifyError('hide_group', e, { id, hidden }, '操作失败'); }
   };
 
   const handleDeleteGroup = (id: string) => {
