@@ -1298,6 +1298,14 @@ const SettingsModal = ({
 
   if (!isOpen) return null;
 
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   const handleSave = () => {
     onChangeLangPreference(languagePreference);
     const payload: Partial<IpResponse> = { upload_dir: uploadDir, mode, allow_remote_group_create: allowRemoteGroupCreate, use_source_date: useSourceDate };
@@ -1328,14 +1336,14 @@ const SettingsModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h3 className="font-bold text-slate-900">{t('settings.title')}</h3>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/50 transition-colors">
             <X size={20} />
           </button>
         </div>
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto">
           {/* Mobile Camera Upload */}
           <div className="block lg:hidden">
             {/* Removed from Settings */}
@@ -1456,7 +1464,7 @@ const SettingsModal = ({
             </div>
           )}
         </div>
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
             {t('common.cancel')}
           </button>

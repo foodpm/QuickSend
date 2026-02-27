@@ -1835,10 +1835,79 @@ if __name__ == '__main__':
             # Create native window
             window = webview.create_window('QuickSend', f'http://127.0.0.1:{GLOBAL_PORT}', width=1100, height=800, resizable=True)
 
+            tray_state = {'icon': None, 'thread': None}
+
+            def _get_tray_image():
+                try:
+                    from PIL import Image
+                    root_dir = (os.path.dirname(sys.executable) if _IS_FROZEN else _PROJECT_ROOT)
+                    ico_path = os.path.join(root_dir, 'logo.ico')
+                    if os.path.exists(ico_path):
+                        return Image.open(ico_path)
+                except Exception:
+                    pass
+                try:
+                    from PIL import Image
+                    return Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+                except Exception:
+                    return None
+
+            def _ensure_tray():
+                try:
+                    if tray_state.get('icon') is not None:
+                        return True
+                    import pystray
+                    img = _get_tray_image()
+                    if img is None:
+                        return False
+
+                    def _on_show(_icon, _item):
+                        try:
+                            window.show()
+                            try:
+                                window.restore()
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
+
+                    def _on_exit(_icon, _item):
+                        try:
+                            try:
+                                _icon.stop()
+                            except Exception:
+                                pass
+                        finally:
+                            os._exit(0)
+
+                    menu = pystray.Menu(
+                        pystray.MenuItem('显示', _on_show, default=True),
+                        pystray.MenuItem('退出', _on_exit),
+                    )
+                    icon = pystray.Icon('QuickSend', img, 'QuickSend', menu)
+                    tray_state['icon'] = icon
+
+                    def _run():
+                        try:
+                            icon.run()
+                        except Exception:
+                            pass
+
+                    th = threading.Thread(target=_run, daemon=True)
+                    tray_state['thread'] = th
+                    th.start()
+                    return True
+                except Exception:
+                    return False
+
             def on_closing():
                 try:
                     if sys.platform.startswith('win') and (_config.get('close_behavior', 'exit') == 'minimize'):
-                        window.minimize()
+                        _ensure_tray()
+                        try:
+                            window.hide()
+                        except Exception:
+                            window.minimize()
                         return False
                 except Exception:
                     return None
