@@ -15,6 +15,8 @@ export interface IpResponse {
   upload_dir?: string;
   allow_remote_group_create?: boolean;
   use_source_date?: boolean;
+  close_behavior?: 'exit' | 'minimize';
+  platform?: string;
   version?: string;
 }
 

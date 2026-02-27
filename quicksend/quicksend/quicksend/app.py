@@ -106,7 +106,7 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.10"
+VERSION = "1.0.11"
 GLOBAL_PORT = 5000
 
 def make_diag_code():
@@ -991,6 +991,8 @@ def api_ip():
             'use_source_date': _config.get('use_source_date', False),
             'upload_dir': app.config['UPLOAD_FOLDER'],
             'allow_remote_group_create': _config.get('allow_remote_group_create', True),
+            'close_behavior': _config.get('close_behavior', 'exit'),
+            'platform': sys.platform,
             'version': VERSION
         })
     except Exception:
@@ -1003,6 +1005,8 @@ def api_ip():
             'use_source_date': _config.get('use_source_date', False),
             'upload_dir': app.config['UPLOAD_FOLDER'],
             'allow_remote_group_create': _config.get('allow_remote_group_create', True),
+            'close_behavior': _config.get('close_behavior', 'exit'),
+            'platform': sys.platform,
             'version': VERSION
         })
 
@@ -1048,6 +1052,14 @@ def api_config():
     if 'allow_remote_group_create' in data:
         _config['allow_remote_group_create'] = bool(data.get('allow_remote_group_create'))
         changed = True
+
+    if 'close_behavior' in data:
+        v = (data.get('close_behavior') or '').strip().lower()
+        if v in ('exit', 'minimize'):
+            _config['close_behavior'] = v
+            changed = True
+        else:
+            return jsonify({'error': 'invalid close_behavior'}), 400
 
     if changed:
         save_config(_config)
@@ -1821,7 +1833,20 @@ if __name__ == '__main__':
         try:
             import webview
             # Create native window
-            webview.create_window('QuickSend', f'http://127.0.0.1:{GLOBAL_PORT}', width=1100, height=800, resizable=True)
+            window = webview.create_window('QuickSend', f'http://127.0.0.1:{GLOBAL_PORT}', width=1100, height=800, resizable=True)
+
+            def on_closing():
+                try:
+                    if sys.platform.startswith('win') and (_config.get('close_behavior', 'exit') == 'minimize'):
+                        window.minimize()
+                        return False
+                except Exception:
+                    return None
+
+            try:
+                window.events.closing += on_closing
+            except Exception:
+                pass
             
             # Ensure storage persistence
             data_dir = os.path.join(_DATA_ROOT, 'QuickSend', 'webview_data')

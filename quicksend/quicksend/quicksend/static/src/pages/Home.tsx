@@ -107,6 +107,9 @@ const I18N: Record<Lang, Record<string, string>> = {
     'settings.allowRemoteCreateGroupHint': '仅本机可修改，关闭后其他设备将无法创建分组。',
     'settings.keepPhotoDate': '保留图片拍摄日期',
     'settings.keepPhotoDateDesc': '上传图片时，尝试将文件的创建日期设置为 EXIF 拍摄时间',
+    'settings.closeBehavior': '关闭按钮行为',
+    'settings.closeBehavior.exit': '退出程序',
+    'settings.closeBehavior.minimize': '最小化',
     'common.cancel': '取消',
     'common.confirm': '确认',
     'common.saveChanges': '保存更改',
@@ -195,6 +198,9 @@ const I18N: Record<Lang, Record<string, string>> = {
     'settings.allowRemoteCreateGroupHint': 'Only configurable on this device. When off, others cannot create groups.',
     'settings.keepPhotoDate': 'Preserve photo capture time',
     'settings.keepPhotoDateDesc': 'When uploading photos, try using EXIF time as file creation time',
+    'settings.closeBehavior': 'Close button action',
+    'settings.closeBehavior.exit': 'Exit app',
+    'settings.closeBehavior.minimize': 'Minimize',
     'common.cancel': 'Cancel',
     'common.confirm': 'OK',
     'common.saveChanges': 'Save',
@@ -1270,11 +1276,15 @@ const SettingsModal = ({
 }) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+
+  const isWindows = (config.platform || '').toLowerCase().startsWith('win');
+  const normalizeCloseBehavior = (v: any): 'exit' | 'minimize' => (v === 'minimize' ? 'minimize' : 'exit');
  
   const [uploadDir, setUploadDir] = useState(config.upload_dir || '');
   const [mode, setMode] = useState(config.mode || 'share');
   const [allowRemoteGroupCreate, setAllowRemoteGroupCreate] = useState<boolean>(config.allow_remote_group_create ?? true);
   const [useSourceDate, setUseSourceDate] = useState<boolean>(config.use_source_date ?? false);
+  const [closeBehavior, setCloseBehavior] = useState<'exit' | 'minimize'>(normalizeCloseBehavior(config.close_behavior));
   const [languagePreference, setLanguagePreference] = useState<LangPreference>(langPreference);
 
   useEffect(() => {
@@ -1282,6 +1292,7 @@ const SettingsModal = ({
     setMode(config.mode || 'share');
     setAllowRemoteGroupCreate(config.allow_remote_group_create ?? true);
     setUseSourceDate(config.use_source_date ?? false);
+    setCloseBehavior(normalizeCloseBehavior(config.close_behavior));
     setLanguagePreference(langPreference);
   }, [config, langPreference]);
 
@@ -1289,7 +1300,9 @@ const SettingsModal = ({
 
   const handleSave = () => {
     onChangeLangPreference(languagePreference);
-    onSave({ upload_dir: uploadDir, mode, allow_remote_group_create: allowRemoteGroupCreate, use_source_date: useSourceDate });
+    const payload: Partial<IpResponse> = { upload_dir: uploadDir, mode, allow_remote_group_create: allowRemoteGroupCreate, use_source_date: useSourceDate };
+    if (isWindows) payload.close_behavior = closeBehavior;
+    onSave(payload);
     onClose();
   };
 
@@ -1425,6 +1438,23 @@ const SettingsModal = ({
               <span className="text-sm text-slate-700">{t('settings.keepPhotoDateDesc')}</span>
             </div>
           </div>
+
+          {isWindows && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.closeBehavior')}</label>
+              <div className="relative">
+                <select
+                  value={closeBehavior}
+                  onChange={(e) => setCloseBehavior(e.target.value as any)}
+                  className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none"
+                >
+                  <option value="exit">{t('settings.closeBehavior.exit')}</option>
+                  <option value="minimize">{t('settings.closeBehavior.minimize')}</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+              </div>
+            </div>
+          )}
         </div>
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
