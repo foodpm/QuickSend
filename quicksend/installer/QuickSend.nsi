@@ -10,6 +10,8 @@
 
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
+!include "WinVer.nsh"
+!include "x64.nsh"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -42,6 +44,17 @@ InstallDir "$PROGRAMFILES64\QuickSend"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
+
+Function .onInit
+  ${IfNot} ${AtLeastWin81}
+    MessageBox MB_ICONSTOP "QuickSend ${PRODUCT_VERSION} 不支持 Windows 7/8。请升级到 Windows 8.1/10/11，或使用旧版本。诊断码：QS-WIN7"
+    Abort
+  ${EndIf}
+  ${IfNot} ${RunningX64}
+    MessageBox MB_ICONSTOP "当前系统为 32 位，请下载 win32 安装包。诊断码：QS-ARCH32"
+    Abort
+  ${EndIf}
+FunctionEnd
 
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
