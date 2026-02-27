@@ -46,14 +46,56 @@ ShowInstDetails show
 ShowUnInstDetails show
 
 Function .onInit
-  ${IfNot} ${AtLeastWin81}
+  Call IsAtLeastWin81
+  Pop $0
+  StrCmp $0 "1" +3 0
     MessageBox MB_ICONSTOP "QuickSend ${PRODUCT_VERSION} 不支持 Windows 7/8。请升级到 Windows 8.1/10/11，或使用旧版本。诊断码：QS-WIN7"
     Abort
-  ${EndIf}
   ${IfNot} ${RunningX64}
     MessageBox MB_ICONSTOP "当前系统为 32 位，请下载 win32 安装包。诊断码：QS-ARCH32"
     Abort
   ${EndIf}
+FunctionEnd
+
+Function IsAtLeastWin81
+  Push $R0
+  Push $R1
+  Push $R2
+  Push $R3
+
+  StrCpy $R0 0
+
+  ClearErrors
+  ReadRegDWORD $R1 HKLM "SOFTWARE\Microsoft\Windows NT\CurrentVersion" "CurrentMajorVersionNumber"
+  ${IfNot} ${Errors}
+    StrCpy $R2 $R1
+    StrCpy $R3 0
+    Goto _cmp
+  ${EndIf}
+
+  ClearErrors
+  ReadRegStr $R1 HKLM "SOFTWARE\Microsoft\Windows NT\CurrentVersion" "CurrentVersion"
+  ${If} ${Errors}
+    Goto _done
+  ${EndIf}
+  StrCpy $R2 $R1 1
+  StrCpy $R3 $R1 1 2
+
+  _cmp:
+    IntCmp $R2 6 _too_old _check_minor _new_enough
+  _check_minor:
+    IntCmp $R3 3 _too_old _new_enough _new_enough
+  _too_old:
+    StrCpy $R0 0
+    Goto _done
+  _new_enough:
+    StrCpy $R0 1
+
+  _done:
+  Pop $R3
+  Pop $R2
+  Pop $R1
+  Exch $R0
 FunctionEnd
 
 Section "MainSection" SEC01
