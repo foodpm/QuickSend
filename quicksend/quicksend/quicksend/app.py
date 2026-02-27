@@ -1848,7 +1848,16 @@ if __name__ == '__main__':
                     pass
                 try:
                     from PIL import Image
-                    return Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+                    root_dir = (os.path.dirname(sys.executable) if _IS_FROZEN else _PROJECT_ROOT)
+                    for p in ('logo2.png', 'logo.png'):
+                        png_path = os.path.join(root_dir, p)
+                        if os.path.exists(png_path):
+                            return Image.open(png_path)
+                except Exception:
+                    pass
+                try:
+                    from PIL import Image
+                    return Image.new('RGBA', (64, 64), (17, 24, 39, 255))
                 except Exception:
                     return None
 
@@ -1859,6 +1868,7 @@ if __name__ == '__main__':
                     import pystray
                     img = _get_tray_image()
                     if img is None:
+                        log('[托盘] 图标加载失败：PIL Image 为空')
                         return False
 
                     def _on_show(_icon, _item):
@@ -1887,25 +1897,39 @@ if __name__ == '__main__':
                     icon = pystray.Icon('QuickSend', img, 'QuickSend', menu)
                     tray_state['icon'] = icon
 
+                    run_detached = getattr(icon, 'run_detached', None)
+                    if callable(run_detached):
+                        try:
+                            run_detached()
+                            log('[托盘] 已启动（detached）')
+                            return True
+                        except Exception as e:
+                            log(f'[托盘] run_detached 失败: {str(e)}')
+
                     def _run():
                         try:
                             icon.run()
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            log(f'[托盘] run 失败: {str(e)}')
 
                     th = threading.Thread(target=_run, daemon=True)
                     tray_state['thread'] = th
                     th.start()
+                    log('[托盘] 已启动（thread）')
                     return True
-                except Exception:
+                except Exception as e:
+                    log(f'[托盘] 初始化失败: {str(e)}')
                     return False
 
             def on_closing():
                 try:
                     if sys.platform.startswith('win') and (_config.get('close_behavior', 'exit') == 'minimize'):
-                        _ensure_tray()
+                        ok = _ensure_tray()
                         try:
-                            window.hide()
+                            if ok:
+                                window.hide()
+                            else:
+                                window.minimize()
                         except Exception:
                             window.minimize()
                         return False
