@@ -174,7 +174,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-13
+          - os: macos-14-large
             arch-name: 'Intel'
             artifact-suffix: 'x86_64'
             python-arch: 'x64'
