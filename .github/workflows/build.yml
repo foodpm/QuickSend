@@ -167,7 +167,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: check
     env:
-      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      MACOSX_DEPLOYMENT_TARGET: '10.15'
     if: >
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
       (github.event_name == 'workflow_dispatch')
@@ -236,7 +236,7 @@ jobs:
         cat > build_mac_ci.sh <<'EOS'
         #!/usr/bin/env bash
         set -e
-        export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
+        export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-10.15}"
         NAME=QuickSend
 
         # 1. Logo Handling
