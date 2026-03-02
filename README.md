@@ -115,13 +115,13 @@
 ---
 # QuickSend dockercompose
 ```
-version: "3.8"
+version: '3.8'
 services:
   quicksend:
-    image: ${DOCKER_IMAGE:-foodpm/quicksend}:${VERSION_TAG:-latest}
+    image: quicksend:v1.0.11   # 改成 docker load 输出的那个
     container_name: quicksend
     ports:
-      - "${PORT:-8000}:8000"
+      - "${HOST_PORT:-8000}:8000"
     environment:
       - HEADLESS=1
       - PORT=8000
