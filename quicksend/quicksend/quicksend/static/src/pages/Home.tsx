@@ -84,6 +84,7 @@ const I18N: Record<Lang, Record<string, string>> = {
     'profile.loggedIn': '已登录',
     'profile.logout': '退出登录',
     'profile.login': '登录',
+    'profile.loginHint': '只有在文件设置密码时，才需要登录',
     'profile.lanAddress': '局域网连接地址',
     'profile.fetching': '获取中...',
     'profile.showQr': '展示二维码',
@@ -175,6 +176,7 @@ const I18N: Record<Lang, Record<string, string>> = {
     'profile.loggedIn': 'Signed in',
     'profile.logout': 'Sign out',
     'profile.login': 'Sign in',
+    'profile.loginHint': 'Sign in is only required when setting a password for files.',
     'profile.lanAddress': 'LAN Address',
     'profile.fetching': 'Loading...',
     'profile.showQr': 'Show QR code',
@@ -792,12 +794,17 @@ const UserProfileCard = ({
                  <LogOut size={16} />
                </button>
             ) : (
-              <button
-                onClick={onLogin}
-                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-sm transition-all whitespace-nowrap"
-              >
-                {t('profile.login')}
-              </button>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <button
+                  onClick={onLogin}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-sm transition-all whitespace-nowrap"
+                >
+                  {t('profile.login')}
+                </button>
+                <p className="text-[10px] text-slate-400 leading-tight text-right max-w-[160px]">
+                  {t('profile.loginHint')}
+                </p>
+              </div>
             )}
           </div>
         </div>
