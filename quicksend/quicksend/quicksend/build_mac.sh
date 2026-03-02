@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -e
-export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-10.15}"
 NAME=QuickSend
 
 # Check if maclogo.png exists in parent directory and copy it
