@@ -8,8 +8,11 @@ import difflib
 import subprocess
 import zipfile
 import mimetypes
+import base64
+import hashlib
+import hmac
 from datetime import datetime
-from flask import Flask, render_template, request, send_from_directory, jsonify, redirect
+from flask import Flask, render_template, request, send_from_directory, send_file, jsonify, redirect
 from werkzeug.utils import secure_filename
 import ctypes
 from ctypes import wintypes
@@ -106,7 +109,7 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.11"
+VERSION = "1.0.12"
 GLOBAL_PORT = 5000
 
 def make_diag_code():
@@ -1677,6 +1680,7 @@ def _find_soffice():
     p = os.environ.get('SOFFICE_PATH')
     candidates = [
         p,
+        '/Applications/LibreOffice.app/Contents/MacOS/soffice',
         r"C:\\Program Files\\LibreOffice\\program\\soffice.exe",
         r"C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
         'soffice'
@@ -1697,30 +1701,77 @@ def _find_soffice():
             pass
     return None
 
-def _convert_office(src_path, ext):
-    base = os.path.basename(src_path)
-    name_no_ext = os.path.splitext(base)[0]
+OFFICE_PREVIEW_TTL_SECONDS = 10 * 60
+
+def _b64url_encode(b):
+    return base64.urlsafe_b64encode(b).decode('utf-8').rstrip('=')
+
+def _b64url_decode(s):
+    pad = '=' * (-len(s) % 4)
+    return base64.urlsafe_b64decode((s + pad).encode('utf-8'))
+
+def _office_signing_key():
+    try:
+        k = (INSTALLATION_ID or SESSION_ID or 'quicksend').encode('utf-8')
+        return hashlib.sha256(k + b'|office-preview|v1').digest()
+    except Exception:
+        return hashlib.sha256(b'quicksend|office-preview|v1').digest()
+
+def _make_office_token(rel_path, expires_at):
+    payload = json.dumps({'p': rel_path, 'e': int(expires_at)}, separators=(',', ':')).encode('utf-8')
+    sig = hmac.new(_office_signing_key(), payload, hashlib.sha256).digest()
+    return f"{_b64url_encode(payload)}.{_b64url_encode(sig)}"
+
+def _verify_office_token(token):
+    try:
+        parts = (token or '').split('.', 1)
+        if len(parts) != 2:
+            return None
+        payload_b = _b64url_decode(parts[0])
+        sig_b = _b64url_decode(parts[1])
+        expected = hmac.new(_office_signing_key(), payload_b, hashlib.sha256).digest()
+        if not hmac.compare_digest(sig_b, expected):
+            return None
+        obj = json.loads(payload_b.decode('utf-8'))
+        exp = int(obj.get('e') or 0)
+        if exp <= int(time.time()):
+            return None
+        rel = (obj.get('p') or '').replace('\\', '/')
+        if not rel or rel.startswith('../') or rel.startswith('..\\'):
+            return None
+        return {'rel': rel, 'exp': exp}
+    except Exception:
+        return None
+
+def _office_cache_key(src_path):
+    try:
+        st = os.stat(src_path)
+        raw = f"{src_path}|{st.st_size}|{getattr(st,'st_mtime_ns', int(st.st_mtime*1e9))}".encode('utf-8', 'ignore')
+        return hashlib.sha1(raw).hexdigest()[:16]
+    except Exception:
+        return hashlib.sha1(src_path.encode('utf-8', 'ignore')).hexdigest()[:16]
+
+def _convert_office_to_pdf(src_path):
     soffice = _find_soffice()
-    if soffice:
+    if not soffice:
+        return None
+    try:
+        outdir = os.path.join(OFFICE_CACHE, _office_cache_key(src_path))
+        os.makedirs(outdir, exist_ok=True)
+        base = os.path.basename(src_path)
+        name_no_ext = os.path.splitext(base)[0]
+        out_file = os.path.join(outdir, f"{name_no_ext}.pdf")
         try:
-            # Prefer HTML for doc, PDF for ppt
-            fmt = 'html' if ext in ('doc',) else 'pdf'
-            subprocess.run([soffice, '--headless', '--convert-to', fmt, '--outdir', OFFICE_CACHE, src_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
-            out_file = os.path.join(OFFICE_CACHE, f"{name_no_ext}.{fmt}")
-            if os.path.exists(out_file):
-                return {'type': fmt, 'path': out_file}
+            if os.path.exists(out_file) and os.path.getmtime(out_file) >= os.path.getmtime(src_path):
+                return out_file
         except Exception:
             pass
-        try:
-            # Fallback to PDF if HTML failed
-            fmt = 'pdf'
-            subprocess.run([soffice, '--headless', '--convert-to', fmt, '--outdir', OFFICE_CACHE, src_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
-            out_file = os.path.join(OFFICE_CACHE, f"{name_no_ext}.pdf")
-            if os.path.exists(out_file):
-                return {'type': fmt, 'path': out_file}
-        except Exception:
-            pass
-    return None
+        subprocess.run([soffice, '--headless', '--convert-to', 'pdf', '--outdir', outdir, src_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=90)
+        if os.path.exists(out_file):
+            return out_file
+        return None
+    except Exception:
+        return None
 
 @app.route('/api/office/preview', methods=['POST'])
 def api_office_preview():
@@ -1733,17 +1784,39 @@ def api_office_preview():
     if not os.path.exists(src_path):
         return jsonify({'error': 'not found'}), 404
     ext = os.path.splitext(filename)[1].lower().strip('.')
-    if ext in ('doc', 'ppt', 'pptx'):
-        # Respect password if set (not implemented for office preview yet)
-        res = _convert_office(src_path, ext)
-        if res:
-            rel = os.path.relpath(res['path'], CACHE_ROOT).replace('\\','/')
-            return jsonify({'type': res['type'], 'url': f"/cache/{rel}"})
+    if ext in ('doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'):
+        meta = load_metadata()
+        entry = meta.get(filename, {})
+        password_hash = entry.get('password_hash')
+        if password_hash and (not password or not _check_password_hash(password_hash, password)):
+            return jsonify({'error': 'password required'}), 403
+
+        out_pdf = _convert_office_to_pdf(src_path)
+        if out_pdf:
+            rel = os.path.relpath(out_pdf, CACHE_ROOT).replace('\\','/')
+            token = _make_office_token(rel, time.time() + OFFICE_PREVIEW_TTL_SECONDS)
+            return jsonify({'type': 'pdf', 'url': f"/api/office/temp/{token}"})
         return jsonify({'error': 'converter not available'}), 500
     return jsonify({'error': 'unsupported'}), 400
 
+@app.route('/api/office/temp/<path:token>')
+def serve_office_temp(token):
+    info = _verify_office_token(token)
+    if not info:
+        return jsonify({'error': 'expired'}), 404
+    rel = info['rel']
+    abs_path = os.path.abspath(os.path.join(CACHE_ROOT, rel))
+    cache_root_abs = os.path.abspath(CACHE_ROOT)
+    if not abs_path.startswith(cache_root_abs + os.sep):
+        return jsonify({'error': 'forbidden'}), 403
+    if not os.path.exists(abs_path):
+        return jsonify({'error': 'not found'}), 404
+    return send_file(abs_path, mimetype='application/pdf', as_attachment=False, max_age=0)
+
 @app.route('/cache/<path:filename>')
 def serve_cache(filename):
+    if not _is_local_request():
+        return jsonify({'error': 'forbidden'}), 403
     return send_from_directory(CACHE_ROOT, filename)
 
 @app.route('/api/files/<path:filename>/password', methods=['POST', 'DELETE'])

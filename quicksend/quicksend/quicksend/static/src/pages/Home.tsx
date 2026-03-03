@@ -46,8 +46,6 @@ import {
   Camera
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { renderAsync } from 'docx-preview';
-import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { FileItem, IpResponse, TextItem, GroupItem } from '../../types';
 
@@ -84,6 +82,7 @@ const I18N: Record<Lang, Record<string, string>> = {
     'profile.loggedIn': '已登录',
     'profile.logout': '退出登录',
     'profile.login': '登录',
+    'profile.loginHint': '无需登录即可传输文件，登录后可设置文件密码、删除自己上传的文件',
     'profile.lanAddress': '局域网连接地址',
     'profile.fetching': '获取中...',
     'profile.showQr': '展示二维码',
@@ -175,6 +174,7 @@ const I18N: Record<Lang, Record<string, string>> = {
     'profile.loggedIn': 'Signed in',
     'profile.logout': 'Sign out',
     'profile.login': 'Sign in',
+    'profile.loginHint': 'You can transfer files without signing in. After signing in, you can set file passwords and delete your own uploads.',
     'profile.lanAddress': 'LAN Address',
     'profile.fetching': 'Loading...',
     'profile.showQr': 'Show QR code',
@@ -800,6 +800,9 @@ const UserProfileCard = ({
               </button>
             )}
           </div>
+          <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+            {t('profile.loginHint')}
+          </p>
         </div>
 
         <div>
@@ -1901,11 +1904,10 @@ const PreviewModal = ({
   const [zipFiles, setZipFiles] = useState<{name: string, size: number, date: string}[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [csvData, setCsvData] = useState<{headers: string[], rows: string[][]} | null>(null);
   const [hexData, setHexData] = useState<{offset: string, hex: string, ascii: string}[] | null>(null);
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
-  const [externalType, setExternalType] = useState<'html'|'pdf'|null>(null);
+  const [externalType, setExternalType] = useState<'pdf'|null>(null);
 
   useEffect(() => {
       if (!isOpen || !file) return;
@@ -1917,13 +1919,10 @@ const PreviewModal = ({
       setHexData(null);
       setExternalUrl(null);
       setExternalType(null);
-      if (containerRef.current) containerRef.current.innerHTML = '';
 
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const isText = ['txt', 'md', 'log', 'js', 'py', 'java', 'xml', 'json', 'css', 'html', 'ts', 'tsx', 'c', 'cpp', 'h', 'hpp', 'go', 'rs', 'sh', 'bat', 'ini', 'yaml', 'yml', 'sql', 'properties', 'conf'].includes(ext);
       const isZip = ['zip', 'jar'].includes(ext);
-      const isDocx = ext === 'docx';
-      const isXlsx = ['xlsx', 'xls', 'csv'].includes(ext);
       const isCsv = ext === 'csv';
       const isBin = ['bin', 'multi', 'dat', 'exe', 'dll', 'so', 'dylib'].includes(ext);
       const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext);
@@ -1958,79 +1957,6 @@ const PreviewModal = ({
              })
              .catch(e => setError(e.message))
              .finally(() => setLoading(false));
-      } else if (isDocx) {
-          setLoading(true);
-          fetch(url)
-            .then(res => res.blob())
-            .then(blob => {
-               console.log('DOCX Preview: Blob size', blob.size);
-               if (containerRef.current) {
-                  // Ensure container is visible
-                  containerRef.current.style.display = 'block';
-                  
-                  renderAsync(blob, containerRef.current, containerRef.current, {
-                      className: "docx-wrapper",
-                      inWrapper: true,
-                      ignoreWidth: false,
-                      ignoreHeight: false,
-                      ignoreFonts: false,
-                      breakPages: true,
-                      ignoreLastRenderedPageBreak: true,
-                      experimental: false,
-                      trimXmlDeclaration: true,
-                      useBase64URL: false,
-                      debug: true,
-                  } as any)
-                  .then(() => {
-                      console.log('DOCX Render Success');
-                      setLoading(false);
-                  })
-                  .catch(e => {
-                      const diag = `QS-${Date.now().toString(16)}`.toUpperCase();
-                      setError(`预览失败（诊断码：${diag}）：${e?.message || String(e)}`);
-                      fetch('/api/log', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ level: 'error', diag_code: diag, where: 'preview_docx', message: e?.message || String(e), data: { file: file?.name } })
-                      }).catch(() => {});
-                  });
-               }
-            })
-            .catch(e => setError('加载失败: ' + e.message));
-      } else if (isXlsx && !isCsv) { // Excel
-          setLoading(true);
-          fetch(url)
-            .then(res => res.arrayBuffer())
-            .then(ab => {
-               console.log('XLSX Preview: Bytes', ab.byteLength);
-               try {
-                   const wb = XLSX.read(ab, {type: 'array'});
-                   const wsname = wb.SheetNames[0];
-                   const ws = wb.Sheets[wsname];
-                   const html = XLSX.utils.sheet_to_html(ws);
-                   if (containerRef.current) {
-                       containerRef.current.innerHTML = html;
-                       // Add basic styles to the table
-                       const table = containerRef.current.querySelector('table');
-                       if (table) {
-                           table.className = "w-full border-collapse text-sm";
-                           table.querySelectorAll('td, th').forEach(el => {
-                               el.className = "border border-slate-300 px-2 py-1";
-                           });
-                       }
-                   }
-                   setLoading(false);
-               } catch (err: any) {
-                   const diag = `QS-${Date.now().toString(16)}`.toUpperCase();
-                   setError(`Excel解析失败（诊断码：${diag}）：${err?.message || String(err)}`);
-                   fetch('/api/log', {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ level: 'error', diag_code: diag, where: 'preview_xlsx', message: err?.message || String(err), data: { file: file?.name } })
-                   }).catch(() => {});
-               }
-            })
-            .catch(e => setError('加载失败: ' + e.message));
       } else if (isCsv) {
           setLoading(true);
           fetch(url)
@@ -2085,8 +2011,8 @@ const PreviewModal = ({
             .catch(e => setError('加载失败: ' + e.message));
       }
 
-      // Office (doc/ppt/pptx) via backend conversion
-      if (isOffice && !isDocx && !isXlsx && !isCsv) {
+      // Office via backend conversion (PDF + temp link)
+      if (isOffice) {
           setLoading(true);
           fetch('/api/office/preview', {
               method: 'POST',
@@ -2116,8 +2042,6 @@ const PreviewModal = ({
   const isCsv = ext === 'csv';
   const isText = !isCsv && ['txt', 'md', 'log', 'js', 'py', 'java', 'xml', 'json', 'css', 'html', 'ts', 'tsx', 'c', 'cpp', 'h', 'hpp', 'go', 'rs', 'sh', 'bat', 'ini', 'yaml', 'yml', 'sql', 'properties', 'conf'].includes(ext);
   const isZip = ['zip', 'jar'].includes(ext);
-  const isDocx = ext === 'docx';
-  const isXlsx = ['xlsx', 'xls'].includes(ext);
   const isHex = hexData !== null; // If we have hex data, show it
 
   return createPortal(
@@ -2173,24 +2097,6 @@ const PreviewModal = ({
                   {isText && content !== null && (
                       <div className="w-full h-full bg-white rounded-lg shadow-2xl overflow-auto p-6">
                           <pre className="font-mono text-sm text-slate-800 whitespace-pre-wrap break-words">{content}</pre>
-                      </div>
-                  )}
-                  {externalType === 'html' && externalUrl && (
-                      <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden max-w-6xl h-[80vh]">
-                          <div className="bg-slate-50 p-2 border-b border-slate-100 flex justify-between items-center px-4 shrink-0">
-                              <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <FileSpreadsheet size={14} />
-                                  <span>文档预览</span>
-                              </div>
-                              <a 
-                                href={externalUrl} 
-                                download 
-                                className="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50 transition-colors"
-                              >
-                                下载文件
-                              </a>
-                          </div>
-                          <iframe src={externalUrl} className="w-full flex-1 overflow-auto bg-white" />
                       </div>
                   )}
 
@@ -2276,28 +2182,6 @@ const PreviewModal = ({
                       </div>
                   )}
 
-                  {(isDocx || isXlsx) && (
-                      <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden max-w-6xl h-[80vh]">
-                          <div className="bg-slate-50 p-2 border-b border-slate-100 flex justify-between items-center px-4 shrink-0">
-                              <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <FileSpreadsheet size={14} />
-                                  <span>文档预览</span>
-                              </div>
-                              <a 
-                                href={url} 
-                                download 
-                                className="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50 transition-colors"
-                              >
-                                下载文件
-                              </a>
-                          </div>
-                          <div 
-                            ref={containerRef} 
-                            className="w-full flex-1 overflow-auto bg-white p-8 docx-container" 
-                            style={{ minHeight: '500px' }}
-                          />
-                      </div>
-                  )}
               </>
           )}
         </div>
@@ -3183,16 +3067,16 @@ const App = () => {
           ) : (
             <main className="flex-1 w-full min-w-0 animate-fade-in" style={{ animationDelay: '0.1s' }}>
               {/* Tab Navigation */}
-              <div className="flex items-center gap-3 mb-6 border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-3 mb-6 border-b border-slate-200 pb-3 overflow-x-auto flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   onClick={() => setActiveTab('files')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'files'
+                  className={`flex flex-none items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'files'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                     }`}
                 >
                   <HardDrive size={16} />
-                  <span>{t('tabs.files')}</span>
+                  <span className="whitespace-nowrap">{t('tabs.files')}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded ${activeTab === 'files' ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'
                     }`}>
                     {files.length}
@@ -3201,13 +3085,13 @@ const App = () => {
 
                 <button
                   onClick={() => setActiveTab('text')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'text'
+                  className={`flex flex-none items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${activeTab === 'text'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                     }`}
                 >
                   <Share2 size={16} />
-                  <span>{t('tabs.texts')}</span>
+                  <span className="whitespace-nowrap">{t('tabs.texts')}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded ${activeTab === 'text' ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'
                     }`}>
                     {texts.length}
