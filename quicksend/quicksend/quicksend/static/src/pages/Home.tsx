@@ -46,6 +46,9 @@ import {
   Camera
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
+import { renderAsync } from 'docx-preview';
+import * as XLSX from 'xlsx';
+import { pptxToHtml } from '@jvmr/pptx-to-html';
 import Papa from 'papaparse';
 import { FileItem, IpResponse, TextItem, GroupItem } from '../../types';
 
@@ -560,6 +563,42 @@ const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
   </div>
 );
 
+const useBodyScrollLock = (locked: boolean) => {
+  useEffect(() => {
+    if (!locked) return;
+    const body = document.body;
+    const count = Number(body.dataset.qsScrollLockCount || '0');
+    if (count === 0) {
+      body.dataset.qsScrollLockOverflow = body.style.overflow || '';
+      body.dataset.qsScrollLockPosition = body.style.position || '';
+      body.dataset.qsScrollLockTop = body.style.top || '';
+      body.dataset.qsScrollLockWidth = body.style.width || '';
+      body.dataset.qsScrollLockY = String(window.scrollY || 0);
+      body.style.overflow = 'hidden';
+      body.style.position = 'fixed';
+      body.style.top = `-${body.dataset.qsScrollLockY}px`;
+      body.style.width = '100%';
+    }
+    body.dataset.qsScrollLockCount = String(count + 1);
+    return () => {
+      const next = Math.max(0, Number(body.dataset.qsScrollLockCount || '1') - 1);
+      body.dataset.qsScrollLockCount = String(next);
+      if (next !== 0) return;
+      const y = Number(body.dataset.qsScrollLockY || '0');
+      body.style.overflow = body.dataset.qsScrollLockOverflow || '';
+      body.style.position = body.dataset.qsScrollLockPosition || '';
+      body.style.top = body.dataset.qsScrollLockTop || '';
+      body.style.width = body.dataset.qsScrollLockWidth || '';
+      delete body.dataset.qsScrollLockOverflow;
+      delete body.dataset.qsScrollLockPosition;
+      delete body.dataset.qsScrollLockTop;
+      delete body.dataset.qsScrollLockWidth;
+      delete body.dataset.qsScrollLockY;
+      window.scrollTo(0, y);
+    };
+  }, [locked]);
+};
+
 const AuthModal = ({
   isOpen,
   onClose,
@@ -574,6 +613,7 @@ const AuthModal = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -668,6 +708,7 @@ const QrCodeModal = ({
   url: string | null;
 }) => {
   const { t } = useI18n();
+  useBodyScrollLock(isOpen && !!url);
   if (!isOpen || !url) return null;
 
   return createPortal(
@@ -1279,6 +1320,7 @@ const SettingsModal = ({
 }) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  useBodyScrollLock(isOpen);
 
   const isWindows = (config.platform || '').toLowerCase().startsWith('win');
   const normalizeCloseBehavior = (v: any): 'exit' | 'minimize' => (v === 'minimize' ? 'minimize' : 'exit');
@@ -1298,15 +1340,6 @@ const SettingsModal = ({
     setCloseBehavior(normalizeCloseBehavior(config.close_behavior));
     setLanguagePreference(langPreference);
   }, [config, langPreference]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -1500,6 +1533,7 @@ const InputModal = ({
 }) => {
   const [value, setValue] = useState(defaultValue);
   const inputRef = useRef<HTMLInputElement>(null);
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -1574,6 +1608,7 @@ const EditGroupModal = ({
   const [name, setName] = useState('');
   const [selectedParent, setSelectedParent] = useState('root');
   const [loading, setLoading] = useState(false);
+  useBodyScrollLock(isOpen && !!group);
 
   useEffect(() => {
     if (isOpen && group) {
@@ -1677,6 +1712,7 @@ const GroupCreateModal = ({
   const [selectedParent, setSelectedParent] = useState(parentId);
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
+  useBodyScrollLock(isOpen);
 
   useEffect(() => { setSelectedParent(parentId); }, [parentId]);
 
@@ -1798,6 +1834,7 @@ const ConfirmationModal = ({
   cancelText?: string;
   type?: 'danger' | 'info';
 }) => {
+  useBodyScrollLock(isOpen);
   if (!isOpen) return null;
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
@@ -1843,6 +1880,7 @@ const DeleteGroupModal = ({
   onConfirm: (deleteFiles: boolean) => void;
 }) => {
   const [deleteFiles, setDeleteFiles] = useState(false);
+  useBodyScrollLock(isOpen);
 
   if (!isOpen) return null;
 
@@ -1904,10 +1942,13 @@ const PreviewModal = ({
   const [zipFiles, setZipFiles] = useState<{name: string, size: number, date: string}[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [officeFallback, setOfficeFallback] = useState(false);
   const [csvData, setCsvData] = useState<{headers: string[], rows: string[][]} | null>(null);
   const [hexData, setHexData] = useState<{offset: string, hex: string, ascii: string}[] | null>(null);
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
   const [externalType, setExternalType] = useState<'pdf'|null>(null);
+  useBodyScrollLock(isOpen && !!file);
 
   useEffect(() => {
       if (!isOpen || !file) return;
@@ -1915,10 +1956,12 @@ const PreviewModal = ({
       setZipFiles(null);
       setError(null);
       setLoading(false);
+      setOfficeFallback(false);
       setCsvData(null);
       setHexData(null);
       setExternalUrl(null);
       setExternalType(null);
+      if (containerRef.current) containerRef.current.innerHTML = '';
 
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const isText = ['txt', 'md', 'log', 'js', 'py', 'java', 'xml', 'json', 'css', 'html', 'ts', 'tsx', 'c', 'cpp', 'h', 'hpp', 'go', 'rs', 'sh', 'bat', 'ini', 'yaml', 'yml', 'sql', 'properties', 'conf'].includes(ext);
@@ -1932,6 +1975,67 @@ const PreviewModal = ({
       const isOffice = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext);
       
       const url = `/download/${encodeURIComponent(file.name)}?preview=true` + (password ? `&password=${encodeURIComponent(password)}` : '');
+
+      const waitForContainer = async () => {
+          for (let i = 0; i < 40; i++) {
+              if (containerRef.current) return;
+              await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          }
+          throw new Error('容器不可用');
+      };
+
+      const renderDocxFallback = async () => {
+          setOfficeFallback(true);
+          await waitForContainer();
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('加载失败');
+          const blob = await res.blob();
+          if (!containerRef.current) throw new Error('容器不可用');
+          await renderAsync(blob, containerRef.current, containerRef.current, {
+              className: "docx-wrapper",
+              inWrapper: true,
+              ignoreWidth: false,
+              ignoreHeight: false,
+              ignoreFonts: false,
+              breakPages: true,
+              ignoreLastRenderedPageBreak: true,
+              experimental: false,
+              trimXmlDeclaration: true,
+              useBase64URL: false
+          } as any);
+      };
+
+      const renderXlsxFallback = async () => {
+          setOfficeFallback(true);
+          await waitForContainer();
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('加载失败');
+          const ab = await res.arrayBuffer();
+          const wb = XLSX.read(ab, { type: 'array' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const html = XLSX.utils.sheet_to_html(ws);
+          if (!containerRef.current) throw new Error('容器不可用');
+          containerRef.current.innerHTML = html;
+          const table = containerRef.current.querySelector('table');
+          if (table) {
+              table.className = "w-full border-collapse text-sm";
+              table.querySelectorAll('td, th').forEach(el => {
+                  (el as HTMLElement).className = "border border-slate-300 px-2 py-1";
+              });
+          }
+      };
+
+      const renderPptxFallback = async () => {
+          setOfficeFallback(true);
+          await waitForContainer();
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('加载失败');
+          const ab = await res.arrayBuffer();
+          const slides = await pptxToHtml(ab, { scaleToFit: true, letterbox: true });
+          if (!containerRef.current) throw new Error('容器不可用');
+          containerRef.current.innerHTML = `<div style="display:flex;flex-direction:column;gap:16px;">${slides.join('')}</div>`;
+      };
 
       if (isText && !isCsv) {
           setLoading(true);
@@ -2019,13 +2123,40 @@ const PreviewModal = ({
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ filename: file.name, password })
           })
-            .then(r => r.json())
+            .then(async r => {
+                const info = await r.json().catch(() => ({} as any));
+                if (!r.ok || (info && info.error)) throw new Error((info && info.error) || `HTTP ${r.status}`);
+                return info;
+            })
             .then(info => {
-                if (info.error) throw new Error(info.error);
+                setOfficeFallback(false);
                 setExternalUrl(info.url);
                 setExternalType(info.type);
             })
-            .catch(e => setError('预览转换失败: ' + e.message))
+            .catch(async e => {
+                setError(null);
+                setExternalUrl(null);
+                setExternalType(null);
+                setLoading(false);
+                try {
+                    if (ext === 'docx') {
+                        await renderDocxFallback();
+                        return;
+                    }
+                    if (ext === 'xlsx' || ext === 'xls') {
+                        await renderXlsxFallback();
+                        return;
+                    }
+                    if (ext === 'pptx') {
+                        await renderPptxFallback();
+                        return;
+                    }
+                } catch (fallbackErr: any) {
+                    setError(`预览失败: ${fallbackErr?.message || String(fallbackErr)}`);
+                    return;
+                }
+                setError('预览转换失败: ' + (e?.message || String(e)));
+            })
             .finally(() => setLoading(false));
       }
 
@@ -2043,6 +2174,7 @@ const PreviewModal = ({
   const isText = !isCsv && ['txt', 'md', 'log', 'js', 'py', 'java', 'xml', 'json', 'css', 'html', 'ts', 'tsx', 'c', 'cpp', 'h', 'hpp', 'go', 'rs', 'sh', 'bat', 'ini', 'yaml', 'yml', 'sql', 'properties', 'conf'].includes(ext);
   const isZip = ['zip', 'jar'].includes(ext);
   const isHex = hexData !== null; // If we have hex data, show it
+  const isOffice = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext);
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in p-4">
@@ -2182,10 +2314,33 @@ const PreviewModal = ({
                       </div>
                   )}
 
+                  {isOffice && officeFallback && (
+                      <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden max-w-6xl h-[80vh]">
+                          <div className="bg-slate-50 p-2 border-b border-slate-100 flex justify-between items-center px-4 shrink-0">
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
+                                  <FileSpreadsheet size={14} />
+                                  <span>文档预览</span>
+                              </div>
+                              <a 
+                                href={url} 
+                                download 
+                                className="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50 transition-colors"
+                              >
+                                下载文件
+                              </a>
+                          </div>
+                          <div 
+                            ref={containerRef} 
+                            className="w-full flex-1 overflow-auto bg-white p-6" 
+                            style={{ minHeight: '500px' }}
+                          />
+                      </div>
+                  )}
+
               </>
           )}
         </div>
-        
+
         <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none">
           <p className="text-white/80 text-sm bg-black/50 inline-block px-3 py-1 rounded-full backdrop-blur-md">
             {file.name}

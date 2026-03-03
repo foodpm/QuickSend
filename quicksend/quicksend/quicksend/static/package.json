@@ -12,6 +12,7 @@
     "docx-preview": "^0.3.7",
     "lucide-react": "^0.555.0",
     "papaparse": "^5.5.3",
+    "@jvmr/pptx-to-html": "^1.0.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
