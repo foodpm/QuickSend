@@ -128,5 +128,5 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Success! x86 Installer created at: ..\..\installer\QuickSend-Setup-1.0.14-win32.exe
+echo Success! x86 Installer created at: ..\..\installer\QuickSend-Setup-1.0.15-win32.exe
 rem pause
