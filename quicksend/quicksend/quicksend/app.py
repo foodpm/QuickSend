@@ -843,7 +843,7 @@ def api_update_changelog():
     try:
         import urllib.parse
         base = _update_site_url()
-        params = {'action': 'changeLog', 'lang': lang}
+        params = {'action': 'changelog', 'lang': lang}
         if version:
             params['version'] = version
         url = base + ('&' if '?' in base else '?') + urllib.parse.urlencode(params)
@@ -1030,6 +1030,18 @@ def favicon():
         return send_from_directory(root_dir, alt_name)
     return ('', 204)
 
+@app.route('/favicon.png')
+def favicon_png():
+    fav_path = os.path.join(STATIC_FOLDER, 'favicon.png')
+    if os.path.exists(fav_path):
+        return send_from_directory(STATIC_FOLDER, 'favicon.png')
+    root_dir = (os.path.dirname(sys.executable) if _IS_FROZEN else _PROJECT_ROOT)
+    alt_name = 'logo.png'
+    alt_path = os.path.join(root_dir, alt_name)
+    if os.path.exists(alt_path):
+        return send_from_directory(root_dir, alt_name)
+    return ('', 204)
+
 @app.get('/maclogo.png')
 def maclogo_png():
     candidates = []
@@ -1063,7 +1075,13 @@ def maclogo_png():
                 return send_file(p, mimetype='image/png')
         except Exception:
             continue
-    return ('', 404)
+    try:
+        fav_png = os.path.join(STATIC_FOLDER, 'favicon.png')
+        if os.path.exists(fav_png):
+            return send_from_directory(STATIC_FOLDER, 'favicon.png')
+    except Exception:
+        pass
+    return ('', 204)
 
 @app.route('/api/ip')
 def api_ip():
