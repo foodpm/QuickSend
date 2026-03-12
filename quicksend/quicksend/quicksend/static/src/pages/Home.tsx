@@ -134,6 +134,8 @@ const I18N: Record<Lang, Record<string, string>> = {
     'upload.tab.file': '文件',
     'upload.tab.text': '文字',
     'upload.uploading': '正在传输...',
+    'upload.uploaded': '已上传',
+    'upload.speed': '速度',
     'upload.dropTitle': '点击或拖拽上传',
     'upload.dropHint': '支持任意文件格式',
     'upload.passwordOptional': '设置访问密码 (可选)',
@@ -156,7 +158,16 @@ const I18N: Record<Lang, Record<string, string>> = {
     'help.title': '帮助',
     'help.tip1': '同一 Wi-Fi 下设备可互传',
     'help.tip2': '上传者可管理自己的文件',
-    'help.updateContact': '软件更新&联系作者'
+    'help.updateContact': '软件更新&联系作者',
+    'update.title': '发现新版本',
+    'update.currentVersion': '当前版本',
+    'update.latestVersion': '最新版本',
+    'update.changelog': '更新日志',
+    'update.loading': '正在加载更新信息...',
+    'update.loadFailed': '更新信息加载失败',
+    'update.empty': '暂无该版本更新日志',
+    'update.later': '稍后',
+    'update.now': '立即更新'
   },
   en: {
     'app.online': 'Online',
@@ -226,6 +237,8 @@ const I18N: Record<Lang, Record<string, string>> = {
     'upload.tab.file': 'Files',
     'upload.tab.text': 'Text',
     'upload.uploading': 'Uploading...',
+    'upload.uploaded': 'Uploaded',
+    'upload.speed': 'Speed',
     'upload.dropTitle': 'Click or drag to upload',
     'upload.dropHint': 'Any file type supported',
     'upload.passwordOptional': 'Optional password',
@@ -248,7 +261,16 @@ const I18N: Record<Lang, Record<string, string>> = {
     'help.title': 'Help',
     'help.tip1': 'Transfer between devices on the same Wi‑Fi',
     'help.tip2': 'Uploaders can manage their own files',
-    'help.updateContact': 'Updates & Contact'
+    'help.updateContact': 'Updates & Contact',
+    'update.title': 'New version available',
+    'update.currentVersion': 'Current version',
+    'update.latestVersion': 'Latest version',
+    'update.changelog': 'What’s new',
+    'update.loading': 'Loading update info...',
+    'update.loadFailed': 'Failed to load update info',
+    'update.empty': 'No changelog available for this version',
+    'update.later': 'Later',
+    'update.now': 'Update now'
   }
 };
 
@@ -278,6 +300,11 @@ const formatSize = (bytes: number): string => {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const formatSpeed = (bytesPerSecond: number): string => {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return '—';
+  return `${formatSize(bytesPerSecond)}/s`;
 };
 
 const formatDate = (timestamp: number, locale: string = 'zh-CN'): string => {
@@ -333,6 +360,34 @@ const getOrCreateDeviceId = (): string => {
     : `dev_${Math.random().toString(16).slice(2)}_${Date.now()}`;
   localStorage.setItem(KEY, id);
   return id;
+};
+
+const isDesktopApp = (): boolean => {
+  try {
+    return typeof window !== 'undefined' && !!(window as any).pywebview;
+  } catch {
+    return false;
+  }
+};
+
+const normalizeVersion = (v: string): string => {
+  const s = String(v || '').trim();
+  const noPrefix = s.replace(/^[vV]\s*/, '');
+  const cleaned = noPrefix.replace(/[^0-9.].*$/, '');
+  return cleaned.replace(/^\.+|\.+$/g, '');
+};
+
+const compareVersions = (a: string, b: string): number => {
+  const pa = normalizeVersion(a).split('.').filter(Boolean).map(x => parseInt(x, 10));
+  const pb = normalizeVersion(b).split('.').filter(Boolean).map(x => parseInt(x, 10));
+  const n = Math.max(pa.length, pb.length);
+  for (let i = 0; i < n; i++) {
+    const ai = Number.isFinite(pa[i]) ? pa[i] : 0;
+    const bi = Number.isFinite(pb[i]) ? pb[i] : 0;
+    if (ai > bi) return 1;
+    if (ai < bi) return -1;
+  }
+  return 0;
 };
 
 // --- Tree Helpers ---
@@ -891,7 +946,7 @@ const UserProfileCard = ({
   );
 };
 
-const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, isLoggedIn, onLoginRequired, groups, selectedGroupId, onChangeGroup }: { onUpload: (files: FileList, password?: string, groupId?: string) => void, onShareText?: (content: string, password?: string) => void, isUploading: boolean, progress: number, isLoggedIn: boolean, onLoginRequired: () => void, groups: GroupItem[], selectedGroupId: string, onChangeGroup: (id: string) => void }) => {
+const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, speedBps, loadedBytes, totalBytes, isLoggedIn, onLoginRequired, groups, selectedGroupId, onChangeGroup }: { onUpload: (files: FileList, password?: string, groupId?: string) => void, onShareText?: (content: string, password?: string) => void, isUploading: boolean, progress: number, speedBps: number, loadedBytes: number, totalBytes: number, isLoggedIn: boolean, onLoginRequired: () => void, groups: GroupItem[], selectedGroupId: string, onChangeGroup: (id: string) => void }) => {
   const { t } = useI18n();
   const [mode, setMode] = useState<'file' | 'text'>('file');
   const [isDragOver, setIsDragOver] = useState(false);
@@ -962,6 +1017,12 @@ const UploadCard = ({ onUpload, onShareText = () => { }, isUploading, progress, 
                 />
               </div>
               <p className="text-xs text-slate-400 mt-2 font-mono">{Math.round(progress)}%</p>
+              <p className="text-xs text-slate-500 mt-1 font-mono">
+                {t('upload.uploaded')} {formatSize(Math.max(0, loadedBytes))}
+                {totalBytes > 0 ? ` / ${formatSize(totalBytes)}` : ''}
+                {' · '}
+                {t('upload.speed')} {formatSpeed(speedBps)}
+              </p>
             </div>
           ) : (
             <div className="flex flex-col items-center text-center w-full px-4">
@@ -1870,6 +1931,128 @@ const ConfirmationModal = ({
   );
 };
 
+const UpdateModal = ({
+  isOpen,
+  onClose,
+  platform,
+  currentVersion,
+  latestVersion,
+  loading,
+  error,
+  items,
+  onUpdateNow
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  platform?: string;
+  currentVersion: string;
+  latestVersion: string;
+  loading: boolean;
+  error: string | null;
+  items: Array<{ date?: string; text?: string; version?: string }>;
+  onUpdateNow: () => void;
+}) => {
+  const { t } = useI18n();
+  useBodyScrollLock(isOpen);
+  if (!isOpen) return null;
+
+  const logoSrc = (platform || '').toLowerCase().includes('darwin') ? '/maclogo.png' : '/favicon.png';
+  const hasItems = Array.isArray(items) && items.length > 0;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-in">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-slate-50">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+              <img src={logoSrc} alt="logo" className="w-8 h-8 object-contain" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="font-semibold text-slate-800 truncate">{t('update.title')}</h3>
+                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium shrink-0">v{latestVersion}</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                {t('update.currentVersion')}: v{currentVersion} · {t('update.latestVersion')}: v{latestVersion}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+            <FileText size={14} />
+            <span>{t('update.changelog')}</span>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <div className="w-4 h-4 rounded-full border-2 border-slate-200 border-t-indigo-500 animate-spin"></div>
+              <span>{t('update.loading')}</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-medium">{t('update.loadFailed')}</div>
+                <div className="text-xs text-red-500 mt-0.5 break-words">{error}</div>
+              </div>
+            </div>
+          ) : !hasItems ? (
+            <div className="text-sm text-slate-500">{t('update.empty')}</div>
+          ) : (
+            <div className="space-y-3 max-h-[45vh] overflow-auto pr-1">
+              {items.map((it, idx) => {
+                const date = (it?.date || '').trim();
+                const text = String(it?.text || '').trim();
+                const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                return (
+                  <div key={idx} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-medium text-slate-500">{date || ''}</div>
+                      {it?.version ? (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">v{normalizeVersion(it.version)}</span>
+                      ) : null}
+                    </div>
+                    {lines.length > 0 ? (
+                      <ul className="mt-2 list-disc pl-5 space-y-1 text-sm text-slate-700">
+                        {lines.map((ln, i) => (
+                          <li key={i} className="leading-relaxed">{ln.replace(/^[-*]\s+/, '')}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{text}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+          >
+            {t('update.later')}
+          </button>
+          <button
+            onClick={onUpdateNow}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-all"
+          >
+            {t('update.now')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 const DeleteGroupModal = ({
   isOpen,
   onClose,
@@ -2359,6 +2542,7 @@ const useToast = () => React.useContext(ToastContext);
 
 const App = () => {
   const LANG_STORAGE_KEY = 'quicksend_lang_preference';
+  const UPDATE_DISMISS_KEY = 'quicksend_update_dismissed_version';
   const [config, setConfig] = useState<IpResponse | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'info' | 'error' | 'success' } | null>(null);
   const showToast = (message: string, type: 'info' | 'error' | 'success' = 'info') => setToast({ message, type });
@@ -2371,6 +2555,13 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSpeedBps, setUploadSpeedBps] = useState(0);
+  const [uploadLoadedBytes, setUploadLoadedBytes] = useState(0);
+  const [uploadTotalBytes, setUploadTotalBytes] = useState(0);
+  const uploadLastTsRef = useRef<number>(0);
+  const uploadLastLoadedRef = useRef<number>(0);
+  const uploadSpeedEmaRef = useRef<number>(0);
+  const uploadTotalBytesRef = useRef<number>(0);
   const [activeTab, setActiveTab] = useState<'files' | 'text'>('files');
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string>('root');
@@ -2436,6 +2627,53 @@ const App = () => {
   }, [langPreference]);
   const lang: Lang = langPreference === 'auto' ? browserLang : langPreference;
   const t = useMemo(() => createT(lang), [lang]);
+  const desktopApp = useMemo(() => isDesktopApp(), []);
+
+  const [updateModal, setUpdateModal] = useState<{
+    open: boolean;
+    currentVersion: string;
+    latestVersion: string;
+    loading: boolean;
+    error: string | null;
+    items: Array<{ date?: string; text?: string; version?: string }>;
+  }>({ open: false, currentVersion: '', latestVersion: '', loading: false, error: null, items: [] });
+  const updateCheckedRef = useRef(false);
+
+  const fetchUpdateChangelog = async (lng: Lang, ver: string) => {
+    const qsBase = new URLSearchParams();
+    qsBase.set('lang', lng);
+    const doFetch = async (versionParam?: string) => {
+      const qs = new URLSearchParams(qsBase);
+      if (versionParam) qs.set('version', versionParam);
+      const res = await fetch(`/api/update/changelog?${qs.toString()}`);
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      return { data, items };
+    };
+
+    try {
+      const clean = normalizeVersion(ver);
+      let r = await doFetch(clean);
+      if (r.items.length === 0 && clean) {
+        const withV = `v${clean}`;
+        const r2 = await doFetch(withV);
+        if (r2.items.length > 0) r = r2;
+      }
+      if (r.items.length === 0) {
+        const all = await doFetch();
+        let items = all.items;
+        const target = normalizeVersion(ver);
+        if (items.length > 0 && target) {
+          const filtered = items.filter((it: any) => normalizeVersion(String(it?.version || '')) === target);
+          if (filtered.length > 0) items = filtered;
+        }
+        return { items, error: all.data?.ok === false ? String(all.data?.error || '') : '' };
+      }
+      return { items: r.items, error: r.data?.ok === false ? String(r.data?.error || '') : '' };
+    } catch (e: any) {
+      return { items: [], error: (e && (e.message || String(e))) || 'error' };
+    }
+  };
 
   const ipAddress = (() => {
     const wl = typeof window !== 'undefined' ? window.location : null;
@@ -2460,6 +2698,39 @@ const App = () => {
     return null;
   })();
   const isHost = config?.is_host;
+
+  useEffect(() => {
+    if (updateCheckedRef.current) return;
+    if (!config?.version) return;
+    updateCheckedRef.current = true;
+    if (!desktopApp) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/update/version');
+        const data = await res.json();
+        if (!data?.ok) return;
+        const latest = normalizeVersion(String(data?.version || ''));
+        const current = normalizeVersion(String(config?.version || ''));
+        if (!latest || !current) return;
+        if (compareVersions(latest, current) <= 0) return;
+        const dismissed = normalizeVersion(localStorage.getItem(UPDATE_DISMISS_KEY) || '');
+        if (dismissed && dismissed === latest) return;
+        setUpdateModal({ open: true, currentVersion: current, latestVersion: latest, loading: true, error: null, items: [] });
+      } catch {}
+    })();
+  }, [config?.version, desktopApp]);
+
+  useEffect(() => {
+    if (!updateModal.open || !updateModal.latestVersion) return;
+    let cancelled = false;
+    (async () => {
+      setUpdateModal(prev => ({ ...prev, loading: true, error: null }));
+      const r = await fetchUpdateChangelog(lang, updateModal.latestVersion);
+      if (cancelled) return;
+      setUpdateModal(prev => ({ ...prev, loading: false, items: r.items || [], error: (r.error || '').trim() || null }));
+    })();
+    return () => { cancelled = true; };
+  }, [lang, updateModal.open, updateModal.latestVersion]);
 
   const handlePreview = (file: FileItem, password?: string) => {
      if (file.has_password && !password) {
@@ -2715,8 +2986,10 @@ const App = () => {
 
   const handleUpload = (fileList: FileList, password?: string, groupIdOverride?: string) => {
     const formData = new FormData();
+    let totalBytes = 0;
     for (let i = 0; i < fileList.length; i++) {
       formData.append('file', fileList[i]);
+      totalBytes += fileList[i].size || 0;
     }
     // If logged in, use username. If not, use '访客' or similar, or just send empty and let backend decide.
     // But requirement says: "Default login last logged-in local name".
@@ -2730,20 +3003,58 @@ const App = () => {
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadLoadedBytes(0);
+    setUploadTotalBytes(totalBytes);
+    setUploadSpeedBps(0);
+    uploadTotalBytesRef.current = totalBytes;
+    uploadLastTsRef.current = performance.now();
+    uploadLastLoadedRef.current = 0;
+    uploadSpeedEmaRef.current = 0;
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/files', true);
 
     xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        const percent = (e.loaded / e.total) * 100;
+      const loaded = e.loaded || 0;
+      setUploadLoadedBytes(loaded);
+      const now = performance.now();
+      const lastTs = uploadLastTsRef.current || now;
+      const lastLoaded = uploadLastLoadedRef.current || 0;
+      const dt = now - lastTs;
+      const dBytes = loaded - lastLoaded;
+      if (dt >= 200 && dBytes >= 0) {
+        const instant = dBytes / (dt / 1000);
+        const prev = uploadSpeedEmaRef.current || 0;
+        const alpha = 0.2;
+        const ema = prev > 0 ? prev * (1 - alpha) + instant * alpha : instant;
+        uploadSpeedEmaRef.current = ema;
+        setUploadSpeedBps(ema);
+        uploadLastTsRef.current = now;
+        uploadLastLoadedRef.current = loaded;
+      }
+
+      if (e.lengthComputable && e.total) {
+        setUploadTotalBytes(e.total);
+        uploadTotalBytesRef.current = e.total;
+        const percent = (loaded / e.total) * 100;
         setUploadProgress(percent);
+      } else {
+        const total = uploadTotalBytesRef.current || 0;
+        if (total > 0) {
+          const percent = Math.min(99, (loaded / total) * 100);
+          setUploadProgress(percent);
+        }
       }
     };
 
     xhr.onload = () => {
       setIsUploading(false);
+      setUploadSpeedBps(0);
+      setUploadLoadedBytes(0);
+      setUploadTotalBytes(0);
+      uploadTotalBytesRef.current = 0;
       if (xhr.status === 201) {
+        setUploadProgress(100);
         fetchFiles();
         // Clear progress after short delay for better UX
         setTimeout(() => setUploadProgress(0), 500);
@@ -2756,6 +3067,10 @@ const App = () => {
 
     xhr.onerror = () => {
       setIsUploading(false);
+      setUploadSpeedBps(0);
+      setUploadLoadedBytes(0);
+      setUploadTotalBytes(0);
+      uploadTotalBytesRef.current = 0;
       notifyError('upload_file', 'network error', {}, '网络错误');
     };
 
@@ -3101,6 +3416,37 @@ const App = () => {
     <I18nContext.Provider value={{ lang, langPreference, setLangPreference, t }}>
       <ToastContext.Provider value={{ showToast }}>
       <div className="min-h-screen bg-slate-50/50 text-slate-800 font-sans selection:bg-slate-200 selection:text-slate-900 pb-12">
+        <UpdateModal
+          isOpen={updateModal.open}
+          onClose={() => {
+            try {
+              if (updateModal.latestVersion) localStorage.setItem(UPDATE_DISMISS_KEY, updateModal.latestVersion);
+            } catch {}
+            setUpdateModal(prev => ({ ...prev, open: false }));
+          }}
+          platform={config?.platform}
+          currentVersion={updateModal.currentVersion || normalizeVersion(String(config?.version || ''))}
+          latestVersion={updateModal.latestVersion}
+          loading={updateModal.loading}
+          error={updateModal.error}
+          items={updateModal.items}
+          onUpdateNow={async () => {
+            const url = 'https://quicksend.chat/download';
+            try {
+              if (desktopApp) {
+                await fetch('/api/open_url', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url })
+                });
+              } else {
+                window.open(url, '_blank', 'noopener,noreferrer');
+              }
+            } catch {
+              try { window.location.href = url; } catch {}
+            }
+          }}
+        />
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
@@ -3144,6 +3490,9 @@ const App = () => {
                 onShareText={handleShareText}
                 isUploading={isUploading}
                 progress={uploadProgress}
+                speedBps={uploadSpeedBps}
+                loadedBytes={uploadLoadedBytes}
+                totalBytes={uploadTotalBytes}
                 isLoggedIn={isLoggedIn}
                 onLoginRequired={() => setShowAuthModal(true)}
                 groups={groups}

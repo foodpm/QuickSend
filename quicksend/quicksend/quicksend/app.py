@@ -118,6 +118,23 @@ def make_diag_code():
     except Exception:
         return f"QS-{int(time.time()*1000):x}".upper()
 
+def _http_get_json(url, timeout=6):
+    import urllib.request
+    req = urllib.request.Request(url, headers={
+        'User-Agent': f'QuickSend/{VERSION} ({sys.platform})'
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read()
+    try:
+        text = raw.decode('utf-8', errors='replace')
+    except Exception:
+        text = str(raw)
+    return json.loads(text)
+
+def _update_site_url():
+    base = (os.environ.get('QS_UPDATE_SITE_URL') or '').strip()
+    return base or 'https://quicksend.chat/functions/v1/site'
+
 
 def get_local_ip():
     try:
@@ -774,6 +791,61 @@ def debug_write():
 def api_version():
     return jsonify({'version': VERSION})
 
+@app.get('/api/update/version')
+def api_update_version():
+    diag = make_diag_code()
+    try:
+        base = _update_site_url()
+        url = base + ('&' if '?' in base else '?') + 'action=version'
+        data = _http_get_json(url, timeout=4)
+        if not isinstance(data, dict):
+            raise Exception('invalid response')
+        v = (data.get('version') or '').strip()
+        if not v and isinstance(data.get('data'), dict):
+            v = (data.get('data', {}).get('version') or '').strip()
+        return jsonify({'ok': True, 'version': v})
+    except Exception as e:
+        try:
+            log("[UPDATE_VERSION_ERR] " + json.dumps({
+                'diag_code': diag,
+                'error': str(e)[:300],
+                'ua': request.headers.get('User-Agent'),
+                'ip': request.remote_addr,
+            }, ensure_ascii=False))
+        except Exception:
+            pass
+        return jsonify({'ok': False, 'error': str(e)[:200], 'diag_code': diag}), 502
+
+@app.get('/api/update/changelog')
+def api_update_changelog():
+    diag = make_diag_code()
+    lang = (request.args.get('lang') or 'zh').strip().lower()
+    version = (request.args.get('version') or '').strip()
+    try:
+        import urllib.parse
+        base = _update_site_url()
+        params = {'action': 'changeLog', 'lang': lang}
+        if version:
+            params['version'] = version
+        url = base + ('&' if '?' in base else '?') + urllib.parse.urlencode(params)
+        data = _http_get_json(url, timeout=6)
+        if not isinstance(data, dict):
+            raise Exception('invalid response')
+        return jsonify(data)
+    except Exception as e:
+        try:
+            log("[UPDATE_CHANGELOG_ERR] " + json.dumps({
+                'diag_code': diag,
+                'error': str(e)[:300],
+                'ua': request.headers.get('User-Agent'),
+                'ip': request.remote_addr,
+                'lang': lang,
+                'version': version
+            }, ensure_ascii=False))
+        except Exception:
+            pass
+        return jsonify({'ok': False, 'items': [], 'error': str(e)[:200], 'diag_code': diag}), 502
+
 @app.get('/api/diag')
 def api_diag():
     dist_index = os.path.join(STATIC_FOLDER, 'dist', 'index.html')
@@ -939,6 +1011,41 @@ def favicon():
         return send_from_directory(root_dir, alt_name)
     return ('', 204)
 
+@app.get('/maclogo.png')
+def maclogo_png():
+    candidates = []
+    try:
+        candidates.append(os.path.join(STATIC_FOLDER, 'maclogo.png'))
+    except Exception:
+        pass
+    try:
+        candidates.append(os.path.join(BASE_DIR, 'maclogo.png'))
+    except Exception:
+        pass
+    try:
+        candidates.append(os.path.join(os.path.dirname(BASE_DIR), 'maclogo.png'))
+    except Exception:
+        pass
+    try:
+        candidates.append(os.path.join(_PROJECT_ROOT, 'maclogo.png'))
+    except Exception:
+        pass
+    try:
+        candidates.append(os.path.join(os.path.dirname(_PROJECT_ROOT), 'maclogo.png'))
+    except Exception:
+        pass
+    try:
+        candidates.append(os.path.join(os.path.dirname(sys.executable), 'maclogo.png'))
+    except Exception:
+        pass
+    for p in candidates:
+        try:
+            if p and os.path.exists(p):
+                return send_file(p, mimetype='image/png')
+        except Exception:
+            continue
+    return ('', 404)
+
 @app.route('/api/ip')
 def api_ip():
     try:
@@ -1103,6 +1210,20 @@ def api_open():
         return jsonify({'message': 'opened'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/open_url', methods=['POST'])
+def api_open_url():
+    if not _is_local_request():
+        return jsonify({'error': 'forbidden'}), 403
+    data = request.get_json(silent=True) or {}
+    url = (data.get('url') or '').strip()
+    if not url:
+        return jsonify({'error': 'missing url'}), 400
+    try:
+        webbrowser.open(url)
+        return jsonify({'message': 'opened'})
+    except Exception as e:
+        return jsonify({'error': str(e)[:200]}), 500
 
 def _is_local_request():
     try:
