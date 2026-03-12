@@ -152,7 +152,7 @@ def _http_get_json(url, timeout=6):
 
 def _update_site_url():
     base = (os.environ.get('QS_UPDATE_SITE_URL') or '').strip()
-    return base or 'https://quicksend.chat/functions/v1/site'
+    return base or 'https://qprcydbpljiiviaigtsd.supabase.co/functions/v1/site'
 
 
 def get_local_ip():
