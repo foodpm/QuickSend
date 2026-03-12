@@ -13,6 +13,7 @@ jobs:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
     env:
       DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME || github.repository_owner }}
