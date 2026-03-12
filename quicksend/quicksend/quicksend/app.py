@@ -118,12 +118,31 @@ def make_diag_code():
     except Exception:
         return f"QS-{int(time.time()*1000):x}".upper()
 
+def _make_ssl_context():
+    try:
+        import ssl
+        insecure = (os.environ.get('QS_UPDATE_INSECURE') or '').strip().lower()
+        if insecure in ('1', 'true', 'yes'):
+            return ssl._create_unverified_context()
+        try:
+            import certifi
+            return ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            return ssl.create_default_context()
+    except Exception:
+        return None
+
 def _http_get_json(url, timeout=6):
     import urllib.request
     req = urllib.request.Request(url, headers={
         'User-Agent': f'QuickSend/{VERSION} ({sys.platform})'
     })
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    ctx = _make_ssl_context()
+    if ctx is None:
+        resp = urllib.request.urlopen(req, timeout=timeout)
+    else:
+        resp = urllib.request.urlopen(req, timeout=timeout, context=ctx)
+    with resp:
         raw = resp.read()
     try:
         text = raw.decode('utf-8', errors='replace')
