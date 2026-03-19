@@ -395,7 +395,7 @@ jobs:
         platforms: linux/amd64
         push: false
         tags: quicksend:local
-        outputs: type=tar,dest=/tmp/quicksend-image-${{ env.VERSION_TAG }}.tar
+        outputs: type=docker,dest=/tmp/quicksend-image-${{ env.VERSION_TAG }}.tar
 
     - name: Upload Docker Artifact
       if: env.DOCKER_USERNAME == ''
