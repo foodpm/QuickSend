@@ -1,5 +1,6 @@
 # 🚀 QuickSend 使用指南
 官网：https://quicksend.chat/
+
 各版本下载链接：https://github.com/foodpm/QuickSend/releases/tag/v1.0.6
 
 ## 👥 面向人群
