@@ -109,7 +109,7 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.15"
+VERSION = "1.0.16"
 GLOBAL_PORT = 5000
 
 def make_diag_code():
@@ -1225,6 +1225,7 @@ def api_open():
     target = app.config['UPLOAD_FOLDER']
     if path:
         target = os.path.join(target, path)
+    target = os.path.abspath(os.path.normpath(target))
         
     if not os.path.exists(target):
         return jsonify({'error': 'not found'}), 404
@@ -1237,10 +1238,17 @@ def api_open():
             cmd.append(target)
             subprocess.call(cmd)
         elif sys.platform == 'win32':
+            windows_target = os.path.normpath(target)
+            windows_upload_folder = os.path.normpath(os.path.abspath(app.config['UPLOAD_FOLDER']))
             if reveal:
-                subprocess.call(['explorer', f'/select,{target}'])
+                result = subprocess.call(f'explorer /select,"{windows_target}"')
+                if result != 0:
+                    if os.path.isdir(windows_upload_folder):
+                        os.startfile(windows_upload_folder)
+                    else:
+                        return jsonify({'error': '打开文件夹失败'}), 500
             else:
-                os.startfile(target)
+                os.startfile(windows_target)
         else:
             # Linux
             subprocess.call(['xdg-open', target])

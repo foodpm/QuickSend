@@ -1154,11 +1154,15 @@ const FileCard = ({
 
   const handleOpen = async () => {
     try {
-      await fetch('/api/open', {
+      const res = await fetch('/api/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: file.name, reveal: true })
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        showToast(data?.error || '打开文件夹失败', 'error');
+      }
     } catch (e) {
       showToast(t('auth.error.network'), 'error');
     }
