@@ -1244,11 +1244,11 @@ def api_open():
                 result = subprocess.call(f'explorer /select,"{windows_target}"')
                 if result != 0:
                     if os.path.isdir(windows_upload_folder):
-                        os.startfile(windows_upload_folder)
+                        subprocess.Popen(['explorer', windows_upload_folder])
                     else:
                         return jsonify({'error': '打开文件夹失败'}), 500
             else:
-                os.startfile(windows_target)
+                subprocess.Popen(['explorer', windows_target])
         else:
             # Linux
             subprocess.call(['xdg-open', target])
