@@ -6,7 +6,7 @@ echo "=========================================="
 echo "QuickSend - Linux AppImage Build Script"
 echo "=========================================="
 
-# 1. Install dependencies
+# 1. Install dependencies (if not already installed)
 if [ -f requirements.txt ]; then
   python3 -m pip install -q -r requirements.txt
 fi
@@ -22,16 +22,13 @@ fi
 
 if [ -n "$ICON_SRC" ]; then
   echo "Using icon: $ICON_SRC"
-  # Convert to required sizes for AppDir
-  mkdir -p assets/icon.iconset
   python3 -c "
 from PIL import Image
 img = Image.open('$ICON_SRC')
 for s in [16, 32, 64, 128, 256, 512]:
     resized = img.resize((s, s), Image.LANCZOS)
-    name = f'icon_{s}x{s}.png'
-    resized.save(f'assets/icon.iconset/{name}')
-"
+    resized.save(f'assets/icon.iconset/icon_{s}x{s}.png')
+" 2>/dev/null || true
 fi
 
 # 3. Analytics config
@@ -62,7 +59,7 @@ python3 -m PyInstaller --noconfirm --clean --onedir --name "$NAME" \
 
 rm -f analytics_config.json || true
 
-# 5. Create AppDir structure for AppImage
+# 5. Create AppDir structure
 echo "Creating AppDir..."
 APPDIR="dist/$NAME.AppDir"
 mkdir -p "$APPDIR/usr/bin"
@@ -73,11 +70,11 @@ mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 cp -r "dist/$NAME" "$APPDIR/usr/bin/$NAME"
 
 # Create AppRun entry point
-cat > "$APPDIR/AppRun" <<'EOF'
+cat > "$APPDIR/AppRun" <<'APPRUN'
 #!/bin/bash
 HERE="$(dirname "$(readlink -f "$0")")"
 exec "$HERE/usr/bin/QuickSend/QuickSend" "$@"
-EOF
+APPRUN
 chmod +x "$APPDIR/AppRun"
 
 # Copy desktop file and icon
@@ -89,31 +86,51 @@ if [ -n "$ICON_SRC" ]; then
   cp "$ICON_SRC" "$APPDIR/usr/share/icons/hicolor/256x256/apps/QuickSend.png"
 fi
 
-# 6. Download and run appimagetool
-echo "Creating AppImage..."
+# 6. Build AppImage manually (no appimagetool AppImage dependency)
+echo "Building AppImage manually..."
 ARCH_SUFFIX="${ARCH_SUFFIX:-x86_64}"
-APPIMAGETOOL="appimagetool-${ARCH_SUFFIX}.AppImage"
 
-if [ ! -f "$APPIMAGETOOL" ]; then
-  if [ "$ARCH_SUFFIX" = "aarch64" ]; then
-    APPIMAGE_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-aarch64.AppImage"
-  else
-    APPIMAGE_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-  fi
-  echo "Downloading appimagetool from $APPIMAGE_URL..."
-  wget -q "$APPIMAGE_URL" -O "$APPIMAGETOOL"
-  chmod +x "$APPIMAGETOOL"
+# Determine runtime URL based on architecture
+if [ "$ARCH_SUFFIX" = "aarch64" ]; then
+  RUNTIME_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-aarch64"
+else
+  RUNTIME_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-x86_64"
 fi
 
-# Extract appimagetool (no FUSE needed in CI)
-if [ ! -d "appimagetool-extracted" ]; then
-  ./"$APPIMAGETOOL" --appimage-extract >/dev/null 2>&1
-  mv squashfs-root appimagetool-extracted
+# Download AppImage runtime
+RUNTIME_FILE="dist/runtime-${ARCH_SUFFIX}"
+if [ ! -f "$RUNTIME_FILE" ]; then
+  echo "Downloading AppImage runtime from $RUNTIME_URL..."
+  wget -q "$RUNTIME_URL" -O "$RUNTIME_FILE"
+  chmod +x "$RUNTIME_FILE"
 fi
 
+# Ensure squashfs-tools is available
+if ! command -v mksquashfs &>/dev/null; then
+  echo "Installing squashfs-tools..."
+  sudo apt-get update -qq && sudo apt-get install -y -qq squashfs-tools
+fi
+
+# Verify mksquashfs is available
+if ! command -v mksquashfs &>/dev/null; then
+  echo "ERROR: mksquashfs not found. Cannot create AppImage."
+  exit 1
+fi
+
+# Create squashfs from AppDir
+SQUASHFS_FILE="dist/${NAME}-${ARCH_SUFFIX}.squashfs"
 OUTPUT_APPIMAGE="dist/${NAME}-linux-${ARCH_SUFFIX}.AppImage"
-ARCH="$ARCH_SUFFIX" ./appimagetool-extracted/AppRun "$APPDIR" "$OUTPUT_APPIMAGE"
+
+mksquashfs "$APPDIR" "$SQUASHFS_FILE" -noappend -comp gzip -quiet
+
+# Concatenate runtime + squashfs to create AppImage
+cat "$RUNTIME_FILE" "$SQUASHFS_FILE" > "$OUTPUT_APPIMAGE"
+chmod +x "$OUTPUT_APPIMAGE"
+
+# Clean up temporary files
+rm -f "$SQUASHFS_FILE"
 
 echo "=========================================="
 echo "AppImage created: $OUTPUT_APPIMAGE"
+echo "Size: $(du -h "$OUTPUT_APPIMAGE" | cut -f1)"
 echo "=========================================="
