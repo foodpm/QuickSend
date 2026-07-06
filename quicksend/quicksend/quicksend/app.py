@@ -117,7 +117,7 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.17"
+VERSION = "1.0.18"
 GLOBAL_PORT = 5000
 
 def make_diag_code():
