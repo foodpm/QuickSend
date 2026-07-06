@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=QuickSend
+Comment=局域网文件传输与分享工具
+Exec=QuickSend
+Icon=QuickSend
+Terminal=false
+Categories=Network;FileTransfer;Utility;
+StartupNotify=true
