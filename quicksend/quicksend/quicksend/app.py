@@ -98,7 +98,15 @@ STATIC_FOLDER = os.path.join(BASE_DIR, 'static')
 
 # Create directories if they don't exist
 if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+    try:
+        os.makedirs(UPLOAD_FOLDER)
+    except (OSError, FileNotFoundError) as e:
+        log(f'[初始化] 上传目录创建失败 ({UPLOAD_FOLDER}): {e}，使用默认路径')
+        UPLOAD_FOLDER = os.path.join(_SYSTEM_DATA, 'QuickSend', 'uploads') if _IS_FROZEN else os.path.join(_PROJECT_ROOT, 'uploads')
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        _config['upload_folder'] = UPLOAD_FOLDER
+        save_config(_config)
+        log(f'[初始化] 已重置上传路径为: {UPLOAD_FOLDER}')
 
 app = Flask(__name__, static_folder=STATIC_FOLDER, template_folder=STATIC_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
