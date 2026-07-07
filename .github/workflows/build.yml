@@ -349,11 +349,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-22.04
             arch-name: 'x86_64'
             artifact-suffix: 'x86_64'
             python-arch: 'x64'
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-22.04-arm
             arch-name: 'aarch64'
             artifact-suffix: 'aarch64'
             python-arch: 'arm64'
