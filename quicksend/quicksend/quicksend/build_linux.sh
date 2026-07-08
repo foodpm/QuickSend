@@ -43,6 +43,7 @@ fi
 # 4. Build with PyInstaller
 echo "Running PyInstaller..."
 python3 -m PyInstaller --noconfirm --clean --onedir --name "$NAME" \
+  --static-libpython \
   $ANALYTICS_DATA_OPT \
   --add-data "static/dist:static/dist" \
   --add-data "static/fonts:static/fonts" \
