@@ -4,73 +4,31 @@ set -e
 echo "=========================================="
 echo "QuickSend - AArch64 Docker CI Build Script"
 echo "=========================================="
-echo "Base: Debian 10 (glibc 2.28) + Portable Python 3.11"
+echo "Base: arm64v8/python:3.11-buster (glibc 2.28)"
 
-# Install system dependencies (minimal - portable Python handles the rest)
-# Debian 10 (Buster) is EOL - use archived repos
+# Fix Debian 10 EOL apt sources
 sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list 2>/dev/null || true
 sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list 2>/dev/null || true
+sed -i 's|http://archive|https://archive|g' /etc/apt/sources.list 2>/dev/null || true
+
+# Install system dependencies
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
-    ca-certificates \
-    curl \
-    wget \
     squashfs-tools \
-    file
+    file \
+    wget
 
-# Download portable Python 3.11 for aarch64
-# python-build-standalone builds on Debian 9 (glibc 2.24+) and are compatible with glibc 2.28
-# Try the latest release first, fall back to older releases
-PYTHON_INSTALLED=0
-for RELEASE_TAG in "20260623" "20250807" "20250723" "20250409"; do
-    if [ "$PYTHON_INSTALLED" = "1" ]; then break; fi
-    for PY_MINOR in 11; do
-        for PY_PATCH in $(seq 15 -1 0); do
-            if [ "$PYTHON_INSTALLED" = "1" ]; then break; fi
-            PYTHON_VERSION="3.${PY_MINOR}.${PY_PATCH}"
-            FILENAME="cpython-${PYTHON_VERSION}+${RELEASE_TAG}-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
-            URL="https://github.com/astral-sh/python-build-standalone/releases/download/${RELEASE_TAG}/${FILENAME}"
-            echo "Trying: $URL"
-            if curl -L --fail --silent --show-error -o /tmp/python.tar.gz "$URL" 2>/dev/null; then
-                echo "Downloaded Python ${PYTHON_VERSION} (release ${RELEASE_TAG})"
-                tar -xzf /tmp/python.tar.gz -C /usr/local
-                rm -f /tmp/python.tar.gz
-                PYTHON_INSTALLED=1
-                break
-            fi
-        done
-    done
-done
-
-if [ "$PYTHON_INSTALLED" != "1" ]; then
-    echo "ERROR: Failed to download portable Python 3.11 for aarch64"
-    exit 1
-fi
-
-# Verify Python
-export PATH="/usr/local/bin:${PATH}"
-echo "Python version: $(python3 --version)"
-echo "Python location: $(which python3)"
-
-# Upgrade pip and install build dependencies
+# Upgrade pip
 python3 -m pip install --upgrade pip setuptools wheel
 
-# Install all Python dependencies from requirements.txt
+# Install Python dependencies
 cd /workspace
-cp -f requirements.txt /tmp/requirements.txt
-python3 -m pip install -r /tmp/requirements.txt
+python3 -m pip install -r requirements.txt
 python3 -m pip install pyinstaller
 
-# Create analytics config if SUPABASE secrets are available
-if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
-    SUPABASE_URL_VAL="${SUPABASE_URL:-}"
-    if [ -z "$SUPABASE_URL_VAL" ] && [ -n "${SUPABASE_PROJECT_REF:-}" ]; then
-        SUPABASE_URL_VAL="https://${SUPABASE_PROJECT_REF}.supabase.co"
-    fi
-    if [ -n "$SUPABASE_URL_VAL" ]; then
-        printf '{"supabase_url":"%s","supabase_anon_key":"%s"}' "$SUPABASE_URL_VAL" "$SUPABASE_ANON_KEY" > analytics_config.json
-        echo "Created analytics_config.json"
-    fi
+# Copy static/index.html for build
+if [ -f "static/dist/index.html" ]; then
+    cp static/dist/index.html static/index.build.html
 fi
 
 # Build the AppImage
