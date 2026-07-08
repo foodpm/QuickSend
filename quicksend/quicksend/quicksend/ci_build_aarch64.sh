@@ -7,6 +7,9 @@ echo "=========================================="
 echo "Base: Debian 10 (glibc 2.28) + Portable Python 3.11"
 
 # Install system dependencies (minimal - portable Python handles the rest)
+# Debian 10 (Buster) is EOL - use archived repos
+sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list 2>/dev/null || true
+sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list 2>/dev/null || true
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
     ca-certificates \
