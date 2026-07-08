@@ -6,25 +6,14 @@ echo "QuickSend - AArch64 Docker CI Build Script"
 echo "=========================================="
 echo "Base: Debian 10 (glibc 2.28) + Portable Python 3.11"
 
-# Install system dependencies for ARM Debian 10
+# Install system dependencies (minimal - portable Python handles the rest)
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
     ca-certificates \
     curl \
     wget \
     squashfs-tools \
-    file \
-    libgtk-3-dev \
-    libwebkit2gtk-4.0-dev \
-    libappindicator3-dev \
-    gcc \
-    g++ \
-    make \
-    libc6-dev \
-    zlib1g-dev \
-    libffi-dev \
-    libssl-dev \
-    pkg-config
+    file
 
 # Download portable Python 3.11 for aarch64
 # python-build-standalone builds on Debian 9 (glibc 2.24+) and are compatible with glibc 2.28
