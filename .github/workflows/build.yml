@@ -387,15 +387,13 @@ jobs:
         npm install
         npm run build
 
-    - name: Set up Python (x86_64 only)
-      if: matrix.arch-name != 'aarch64'
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         architecture: ${{ matrix.python-arch }}
 
-    - name: Install System Dependencies (x86_64 only)
-      if: matrix.arch-name != 'aarch64'
+    - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
@@ -406,23 +404,29 @@ jobs:
           wget \
           file
 
-    - name: Install Docker (aarch64 only)
+    - name: Download Portable Python 3.11 (aarch64 only)
       if: matrix.arch-name == 'aarch64'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends docker.io
-        sudo systemctl start docker || true
-        docker --version
+        # Download python-build-standalone (requires glibc 2.28+, compatible with UOS)
+        curl -L -o /tmp/python.tar.gz \
+          "https://github.com/astral-sh/python-build-standalone/releases/download/20260623/cpython-3.11.15+20260623-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz" \
+          || curl -L -o /tmp/python.tar.gz \
+          "https://github.com/astral-sh/python-build-standalone/releases/download/20250807/cpython-3.11.13+20250807-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz" \
+          || curl -L -o /tmp/python.tar.gz \
+          "https://github.com/astral-sh/python-build-standalone/releases/download/20250723/cpython-3.11.12+20250723-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
+        sudo tar -xzf /tmp/python.tar.gz -C /usr/local
+        rm -f /tmp/python.tar.gz
+        # Override PATH to use portable Python
+        echo "/usr/local/bin" >> $GITHUB_PATH
+        python3 --version
 
-    - name: Install Python Dependencies (x86_64 only)
-      if: matrix.arch-name != 'aarch64'
+    - name: Install Python Dependencies
       working-directory: quicksend/quicksend/quicksend
       run: |
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: Prepare Static Assets (x86_64 only)
-      if: matrix.arch-name != 'aarch64'
+    - name: Prepare Static Assets
       working-directory: quicksend/quicksend/quicksend
       run: |
         cp static/dist/index.html static/index.build.html
@@ -431,24 +435,9 @@ jobs:
       working-directory: quicksend/quicksend/quicksend
       env:
         ARCH_SUFFIX: ${{ matrix.artifact-suffix }}
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       run: |
-        if [ "${{ matrix.arch-name }}" = "aarch64" ]; then
-          # Build inside Docker container with glibc 2.28 (Debian 10 + Python 3.11)
-          docker run --rm \
-            -v "$(pwd):/workspace" \
-            -w /workspace \
-            -e SUPABASE_URL \
-            -e SUPABASE_ANON_KEY \
-            -e SUPABASE_PROJECT_REF \
-            arm64v8/python:3.11-buster \
-            bash /workspace/ci_build_aarch64.sh
-        else
-          chmod +x build_linux.sh
-          bash build_linux.sh
-        fi
+        chmod +x build_linux.sh
+        bash build_linux.sh
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
