@@ -32,7 +32,7 @@ mkdir -p "$PKG_ROOT/usr/bin"
 
 # ---------- 3. 复制应用文件 ----------
 echo "复制应用文件..."
-cp app.py static requirements.txt start_kylin.sh logo.png "$PKG_ROOT/opt/quicksend/"
+cp -r app.py static requirements.txt start_kylin.sh logo.png "$PKG_ROOT/opt/quicksend/"
 [ -f analytics.py ] && cp analytics.py "$PKG_ROOT/opt/quicksend/" || true
 [ -f logo.ico ] && cp logo.ico "$PKG_ROOT/opt/quicksend/" || true
 chmod +x "$PKG_ROOT/opt/quicksend/start_kylin.sh"
