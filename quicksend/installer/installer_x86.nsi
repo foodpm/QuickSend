@@ -1,6 +1,6 @@
 !define PRODUCT_NAME "QuickSend"
 !ifndef PRODUCT_VERSION
-!define PRODUCT_VERSION "1.0.18"
+!define PRODUCT_VERSION "1.0.19"
 !endif
 !define PRODUCT_PUBLISHER "QuickSend Team"
 !define PRODUCT_WEB_SITE "http://www.quicksend.com"
@@ -10,8 +10,6 @@
 
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
-!include "WinVer.nsh"
-!include "x64.nsh"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -44,55 +42,6 @@ InstallDir "$PROGRAMFILES\QuickSend"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
-
-Function .onInit
-  Call IsAtLeastWin81
-  Pop $0
-  StrCmp $0 "1" +3 0
-    MessageBox MB_ICONSTOP "QuickSend ${PRODUCT_VERSION} 不支持 Windows 7/8。请升级到 Windows 8.1/10/11，或使用旧版本。诊断码：QS-WIN7"
-    Abort
-FunctionEnd
-
-Function IsAtLeastWin81
-  Push $R0
-  Push $R1
-  Push $R2
-  Push $R3
-
-  StrCpy $R0 0
-
-  ClearErrors
-  ReadRegDWORD $R1 HKLM "SOFTWARE\Microsoft\Windows NT\CurrentVersion" "CurrentMajorVersionNumber"
-  ${IfNot} ${Errors}
-    StrCpy $R2 $R1
-    StrCpy $R3 0
-    Goto _cmp
-  ${EndIf}
-
-  ClearErrors
-  ReadRegStr $R1 HKLM "SOFTWARE\Microsoft\Windows NT\CurrentVersion" "CurrentVersion"
-  ${If} ${Errors}
-    Goto _done
-  ${EndIf}
-  StrCpy $R2 $R1 1
-  StrCpy $R3 $R1 1 2
-
-  _cmp:
-    IntCmp $R2 6 _too_old _check_minor _new_enough
-  _check_minor:
-    IntCmp $R3 3 _too_old _new_enough _new_enough
-  _too_old:
-    StrCpy $R0 0
-    Goto _done
-  _new_enough:
-    StrCpy $R0 1
-
-  _done:
-  Pop $R3
-  Pop $R2
-  Pop $R1
-  Exch $R0
-FunctionEnd
 
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"

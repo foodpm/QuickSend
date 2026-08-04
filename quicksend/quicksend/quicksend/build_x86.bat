@@ -5,16 +5,17 @@ echo QuickSend - Build x86 (32-bit) Version
 echo ==========================================
 echo.
 echo Note: To build a 32-bit executable, you MUST have a 32-bit Python installed.
+echo Win7 兼容要求 32 位 Python 3.9/3.8 + PyInstaller 5.13.x
+echo.
 echo.
 
 set "PYTHON_X86="
 
-REM Check for common locations
-if exist "C:\Python38\python.exe" set "PYTHON_X86=C:\Python38\python.exe"
-if exist "C:\Python311-32\python.exe" set "PYTHON_X86=C:\Python311-32\python.exe"
-if exist "C:\Python310-32\python.exe" set "PYTHON_X86=C:\Python310-32\python.exe"
+REM Check for common locations (优先 Win7 兼容的 3.9/3.8)
 if exist "C:\Python39-32\python.exe" set "PYTHON_X86=C:\Python39-32\python.exe"
-if exist "C:\Program Files (x86)\Python311-32\python.exe" set "PYTHON_X86=C:\Program Files (x86)\Python311-32\python.exe"
+if exist "C:\Program Files (x86)\Python39-32\python.exe" set "PYTHON_X86=C:\Program Files (x86)\Python39-32\python.exe"
+if exist "C:\Python38-32\python.exe" set "PYTHON_X86=C:\Python38-32\python.exe"
+if exist "C:\Python38\python.exe" set "PYTHON_X86=C:\Python38\python.exe"
 
 if "%PYTHON_X86%"=="" (
     echo No 32-bit Python found in common locations.
@@ -34,9 +35,9 @@ echo Checking architecture...
 "%PYTHON_X86%" -c "import struct; print('Architecture: ' + str(struct.calcsize('P') * 8) + '-bit')"
 
 echo.
-echo [1/4] Installing dependencies...
+echo [1/4] Installing dependencies (Win7 兼容锁定)...
 "%PYTHON_X86%" -m pip install --upgrade pip
-"%PYTHON_X86%" -m pip install flask pyinstaller>=6.0 werkzeug pywebview pillow pystray jaraco.text certifi
+"%PYTHON_X86%" -m pip install -r requirements-win7.txt
 
 echo.
 echo [2/4] Building executable...
@@ -57,9 +58,9 @@ if not "%SUPABASE_URL%"=="" if not "%SUPABASE_ANON_KEY%"=="" (
   set "ANALYTICS_DATA_OPT=--add-data \"analytics_config.json;.\""
 )
 IF EXIST logo.ico (
-  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=pystray --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all pystray --collect-datas jaraco.text --collect-all platformdirs --collect-all certifi --icon=logo.ico app.py
+  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --collect-all flask --collect-all werkzeug --collect-all certifi --icon=logo.ico app.py
 ) ELSE (
-  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=pystray --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all pystray --collect-datas jaraco.text --collect-all platformdirs --collect-all certifi app.py
+  "%PYTHON_X86%" -m PyInstaller --noconfirm --clean --noconsole --onedir --name "%NAME%" %ANALYTICS_DATA_OPT% --add-data "static\\dist;static\\dist" --add-data "static\\fonts;static\\fonts" --add-data "static\\index.build.html;static" --add-data "static\\script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --collect-all flask --collect-all werkzeug --collect-all certifi app.py
 )
 if exist analytics_config.json del /q analytics_config.json
 
@@ -128,5 +129,5 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Success! x86 Installer created at: ..\..\installer\QuickSend-Setup-1.0.18-win32.exe
+echo Success! x86 Installer created at: ..\..\installer\QuickSend-Setup-1.0.19-win32.exe
 rem pause

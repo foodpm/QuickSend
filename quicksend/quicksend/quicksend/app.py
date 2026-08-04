@@ -117,7 +117,7 @@ try:
 except Exception:
     pass
 app.config['JSON_AS_ASCII'] = False
-VERSION = "1.0.18"
+VERSION = "1.0.19"
 GLOBAL_PORT = 5000
 
 def make_diag_code():
@@ -2195,7 +2195,9 @@ if __name__ == '__main__':
             webview.start(private_mode=False, storage_path=data_dir)
             # When window closes, exit the app
             os._exit(0)
-        except ImportError:
+        except Exception as e:
+            # 原生窗口初始化失败（如缺少 WebKitGTK/WebView2）时回退到浏览器
+            log(f'[窗口] 原生窗口不可用（{e}），回退到浏览器模式')
             # Fallback to browser
             threading.Thread(target=open_browser).start()
             try:

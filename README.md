@@ -10,7 +10,7 @@ QuickSend turns your computer into a private sharing hub. Any phone or another c
 
 **[中文文档](README.zh-CN.md)** · [Website](https://quicksend.chat/) · [Report a Bug](https://github.com/foodpm/QuickSend/issues/new) · [Request a Feature](https://github.com/foodpm/QuickSend/issues/new)
 
-![Version](https://img.shields.io/badge/version-1.0.18-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.19-2ea44f)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4)
 ![Docker](https://img.shields.io/badge/docker-foodpm%2Fquicksend-2496ed?logo=docker&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-3776ab?logo=python&logoColor=white)

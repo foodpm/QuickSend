@@ -1,0 +1,12 @@
+# QuickSend Windows 7 兼容构建依赖
+# 注意：
+# 1. 必须使用 Python 3.9.x（官方支持 Windows 7 的最后 Python 大版本）
+# 2. PyInstaller 锁定 5.13.x（6.x 起要求 Windows 8+，不支持 Win7）
+# 3. 不包含 pywebview：Win7 上 WebView2 已停止更新，缺失时会崩溃；
+#    去掉后应用自动回退到"默认浏览器打开"模式（app.py 已内置该逻辑）
+flask==3.0.3
+werkzeug==3.0.3
+Pillow==10.4.0
+pystray==0.19.5
+certifi==2024.8.30
+pyinstaller==5.13.2
