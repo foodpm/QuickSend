@@ -57,10 +57,12 @@ jobs:
         include:
           - arch: x64
             python-arch: 'x64'
+            python-version: '3.11'
             nsi-script: 'QuickSend.nsi'
             artifact-suffix: 'win64'
           - arch: x86
             python-arch: 'x86'
+            python-version: '3.9'
             nsi-script: 'installer_x86.nsi'
             artifact-suffix: 'win32'
 
@@ -102,14 +104,20 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python-version }}
         architecture: ${{ matrix.python-arch }}
 
     - name: Install Dependencies
       working-directory: quicksend/quicksend/quicksend
+      shell: bash
       run: |
-        pip install flask "pyinstaller>=6.0" werkzeug pywebview pillow pystray jaraco.text pythonnet clr_loader certifi
-        pip install platformdirs
+        if [ "${{ matrix.arch }}" = "x86" ]; then
+          # Win7 兼容构建（32位）：Python 3.9 + 锁定依赖（PyInstaller 5.13）
+          pip install -r requirements-win7.txt
+        else
+          pip install flask "pyinstaller>=6.0" werkzeug pywebview pillow pystray jaraco.text pythonnet clr_loader certifi
+          pip install platformdirs
+        fi
 
     - name: Generate Icon
       working-directory: quicksend/quicksend/quicksend
@@ -124,8 +132,14 @@ jobs:
 
     - name: Run PyInstaller
       working-directory: quicksend/quicksend/quicksend
+      shell: bash
       run: |
-        pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "analytics_config.json;." --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=pystray --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all pystray --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all platformdirs --collect-all certifi --icon=logo.ico app.py
+        if [ "${{ matrix.arch }}" = "x86" ]; then
+          # Win7 兼容（32位）：不含 pywebview，自动回退浏览器模式
+          pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "analytics_config.json;." --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --collect-all flask --collect-all werkzeug --collect-all certifi --icon=logo.ico app.py
+        else
+          pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "analytics_config.json;." --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --hidden-import=webview --hidden-import=pystray --hidden-import=clr_loader --hidden-import=pythonnet --hidden-import=jaraco.text --collect-all flask --collect-all werkzeug --collect-all pystray --collect-all clr_loader --collect-all pythonnet --collect-datas jaraco.text --collect-all platformdirs --collect-all certifi --icon=logo.ico app.py
+        fi
 
     - name: Post-Build Copy (Fix missing files)
       working-directory: quicksend/quicksend/quicksend
@@ -445,6 +459,147 @@ jobs:
         name: QuickSend-Linux-${{ matrix.artifact-suffix }}
         path: quicksend/quicksend/quicksend/dist/QuickSend-linux-${{ matrix.artifact-suffix }}.AppImage
 
+  build-win7:
+    name: Build Windows 7 (x64)
+    runs-on: windows-latest
+    needs: check
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch')
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Prepare Analytics Config (Embed into installer)
+      working-directory: quicksend/quicksend/quicksend
+      shell: pwsh
+      env:
+        SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: |
+        $anon = $env:SUPABASE_ANON_KEY
+        if ([string]::IsNullOrEmpty($anon)) { throw "Missing required GitHub Secret: SUPABASE_ANON_KEY" }
+
+        $url = $env:SUPABASE_URL
+        if ([string]::IsNullOrEmpty($url)) {
+          if ([string]::IsNullOrEmpty($env:SUPABASE_PROJECT_REF)) { throw "Missing SUPABASE_URL and SUPABASE_PROJECT_REF (need one to build URL)" }
+          $url = "https://$($env:SUPABASE_PROJECT_REF).supabase.co"
+        }
+
+        @{ supabase_url = $url; supabase_anon_key = $anon } |
+          ConvertTo-Json -Compress |
+          Out-File -Encoding utf8 analytics_config.json
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Build Frontend
+      working-directory: quicksend/quicksend/quicksend/static
+      run: |
+        npm install
+        npm run build
+
+    - name: Set up Python 3.9 (Win7 compatible)
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+        architecture: 'x64'
+
+    - name: Install Dependencies (Win7 locked)
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        pip install -r requirements-win7.txt
+
+    - name: Generate Icon
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        python -c "from PIL import Image; import os; img_path='logo2.png' if os.path.exists('logo2.png') else 'logo.png'; img=Image.open(img_path) if os.path.exists(img_path) else None; img.save('logo.ico', sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)]) if img else print('Logo not found, skipping icon generation')"
+
+    - name: Prepare Static Assets
+      working-directory: quicksend/quicksend/quicksend
+      shell: bash
+      run: |
+        cp static/dist/index.html static/index.build.html
+
+    - name: Run PyInstaller (Win7, no pywebview)
+      working-directory: quicksend/quicksend/quicksend
+      shell: bash
+      run: |
+        pyinstaller --noconfirm --clean --noconsole --onedir --name "QuickSend" --add-data "analytics_config.json;." --add-data "static/dist;static/dist" --add-data "static/fonts;static/fonts" --add-data "static/index.build.html;static" --add-data "static/script.js;static" --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --hidden-import=click --hidden-import=itsdangerous --hidden-import=markupsafe --collect-all flask --collect-all werkzeug --collect-all certifi --icon=logo.ico app.py
+
+    - name: Post-Build Copy (Fix missing files)
+      working-directory: quicksend/quicksend/quicksend
+      shell: bash
+      run: |
+        if [ -d "dist/QuickSend/_internal" ]; then
+            mkdir -p "dist/QuickSend/_internal/static/dist"
+            cp -r static/dist/* "dist/QuickSend/_internal/static/dist/"
+        else
+            mkdir -p "dist/QuickSend/static/dist"
+            cp -r static/dist/* "dist/QuickSend/static/dist/"
+        fi
+        if [ -f "logo.ico" ]; then
+            cp logo.ico dist/QuickSend/
+        fi
+        rm -f analytics_config.json || true
+
+    - name: Setup NSIS
+      run: |
+        choco install nsis
+        echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+
+    - name: Run NSIS (Win7 installer)
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        $evt = "${{ github.event_name }}"; $name = ""; if ($evt -eq "workflow_dispatch" -and -not [string]::IsNullOrEmpty("${{ github.event.inputs.version_tag }}")) { $name = "${{ github.event.inputs.version_tag }}"; } elseif ("${{ github.ref }}".StartsWith("refs/tags/")) { $name = "${{ github.ref_name }}"; } else { $name = "1.0.1" }; if ($name.StartsWith("v")) { $ver = $name.Substring(1) } else { $ver = $name }; echo "VERSION_NO_V=$ver" >> $env:GITHUB_ENV
+        makensis /INPUTCHARSET UTF8 /DPRODUCT_VERSION=$env:VERSION_NO_V ..\..\installer\QuickSend_win7.nsi
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: QuickSend-Windows-Win7
+        path: quicksend/installer/*win7-64.exe
+
+  build-loongarch64-deb:
+    name: Build LoongArch64 .deb
+    runs-on: ubuntu-latest
+    needs: check
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch')
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Build Frontend
+      working-directory: quicksend/quicksend/quicksend/static
+      run: |
+        npm install
+        npm run build
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Build .deb Package
+      working-directory: quicksend/quicksend/quicksend
+      run: |
+        chmod +x build_loongarch64_deb.sh
+        bash build_loongarch64_deb.sh
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: QuickSend-LoongArch64-deb
+        path: quicksend/quicksend/quicksend/build/*.deb
+
   build-docker:
     name: Build Docker
     runs-on: ubuntu-latest
@@ -527,6 +682,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.do_release == 'true')
     needs:
       - build-windows
+      - build-win7
+      - build-loongarch64-deb
       - build-macos
       - build-linux
       - build-docker
@@ -572,6 +729,18 @@ jobs:
         name: QuickSend-Linux-aarch64
         path: artifacts/linux/aarch64
 
+    - name: Download Windows Win7
+      uses: actions/download-artifact@v4
+      with:
+        name: QuickSend-Windows-Win7
+        path: artifacts/windows-win7
+
+    - name: Download LoongArch64 deb
+      uses: actions/download-artifact@v4
+      with:
+        name: QuickSend-LoongArch64-deb
+        path: artifacts/loongarch64
+
     - name: Download Docker Manifest
       uses: actions/download-artifact@v4
       with:
@@ -604,6 +773,8 @@ jobs:
         cp artifacts/linux/aarch64/*.AppImage release/ || true
         cp artifacts/docker/docker-manifest.json release/ || true
         cp artifacts/docker/*.tar release/ || true
+        cp artifacts/windows-win7/*.exe release/ || true
+        cp artifacts/loongarch64/*.deb release/ || true
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
