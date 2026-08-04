@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="quicksend/quicksend/logo.png" alt="QuickSend" width="128" />
+<img src="quicksend/quicksend/maclogo.png" alt="QuickSend" width="128" />
 
 # QuickSend
 
