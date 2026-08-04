@@ -1,195 +1,127 @@
-# 🚀 QuickSend 使用指南
-官网：https://quicksend.chat/
+<div align="center">
 
-## 👥 面向人群
-- 适合普通用户，无需懂技术或命令行
-- 一台电脑作为“主机”，另一台电脑/手机在同一 Wi‑Fi 下即可使用
+<img src="quicksend/quicksend/logo.png" alt="QuickSend" width="128" />
 
-## 🧭 你能用它做什么
-- 🗂️ 在电脑与手机/另一台电脑之间快速传文件
-- 📝 分享一段文字或链接，支持密码
-- 🔐 给文件/文字加密码，保护隐私
-- 🧩 用分组整理内容，支持搜索与预览
+# QuickSend
 
-## 🧰 准备工作
-- 主机电脑（Windows）上安装或运行 QuickSend
-- 手机/另一台电脑与主机在同一 Wi‑Fi 或热点下
+**Share files & text instantly between devices over your local network — no cloud, no account, no configuration.**
 
-## 📦 安装与启动
-- 安装包方式
-  - 双击安装包，按提示完成安装
-  - 从桌面或开始菜单打开 QuickSend
-- 便携运行（免安装/仓库内运行）
-  - 在项目目录双击 `start_quicksend.bat` 或运行 `python quicksend\app.py`
-- 启动后会弹出应用窗口或自动打开浏览器页面
+QuickSend turns your computer into a private sharing hub. Any phone or another computer on the same Wi-Fi can connect, scan a QR code, and start uploading, downloading, and previewing files in seconds.
 
-## 🏠 主界面速览
-- 顶部显示“我的地址”和二维码
-  - 手机或另一台电脑用浏览器打开该地址，或扫码进入
-- 两个主要标签页
-  - 文件：上传/下载/预览/分组/密码
-  - 文本：新建/复制/密码/删除
-- 右上角常用入口
-  - 设置：修改保存位置、切换传输模式
-  - 登录/注册：创建自己的账号，用于标记“上传者”和授权删除/改密
-  - 打开目录：在系统文件夹里查看/定位已上传内容
+**[中文文档](README.zh-CN.md)** · [Website](https://quicksend.chat/) · [Report a Bug](https://github.com/foodpm/QuickSend/issues/new) · [Request a Feature](https://github.com/foodpm/QuickSend/issues/new)
 
-## 🌐 让其他设备连接
-- 确保在同一 Wi‑Fi / 热点
-- 在主机页面复制“我的地址”（形如 `http://192.168.x.x:5000`）或扫码
-- 在手机/另一台电脑的浏览器中打开即可
-- 打不开时
-  - 确认都连在同一网络（不是蜂窝/数据流量）
-  - 主机防火墙弹窗允许访问，或稍等自动放行后重试
-  - 如果用 NAS/Docker 部署，确认端口映射和地址正确
+![Version](https://img.shields.io/badge/version-1.0.18-2ea44f)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4)
+![Docker](https://img.shields.io/badge/docker-foodpm%2Fquicksend-2496ed?logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.8%2B-3776ab?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?logo=flask&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)
 
-## 🗂️ 文件分享
-- 上传文件
-  - 在“文件”页点击“上传”或把文件拖进去
-  - 可选：选择分组、设置密码、填写“上传者”（建议填你的昵称）
-- 下载与预览
-  - 所有连接到页面的设备都能看到列表，点击即可下载
-  - 图片/音频/CSV/XLSX/DOCX 等可在页面内预览（部分格式需主机安装预览组件）
-- 分享给别人
-  - 复制页面地址后发给对方（同一网络）
-  - 在文件卡片里复制直链或让对方扫码访问
-- 设置/取消密码
-  - 在文件的“更多/密码”入口中设置或清除
-  - 只有“上传者本人”或“主机”可以改密或清除
-- 删除与移动分组
-  - 删除：只有上传者或主机可删除
-  - 移动：把文件拖到分组或在“移动到分组”里选择目标分组
-- 打开保存位置（主机）
-  - 点击“打开目录”或“定位文件”，系统会弹出该文件夹/文件位置
+</div>
 
-## 📝 文本分享
-- 新建文本
-  - 切到“文本”页，点击“新建”输入内容，必要时设置密码
-- 分享与复制
-  - 创建后生成一条列表项，点击即可复制内容或复制访问链接
-- 密码与删除
-  - 文本同样支持设置/取消密码；只有上传者或主机可删除
+## Table of Contents
 
-## 📚 分组与搜索
-- 创建分组：输入名字即创建，支持多层级
-- 重命名/移动分组：在“更多”操作里完成；拖动分组可调整层级
-- 隐藏分组（仅主机）：主机可将分组设为“隐藏”，远端设备看不到其内容
-- 搜索：顶部搜索框支持模糊匹配，快速定位文件/文本
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Usage Overview](#usage-overview)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Docker & NAS Deployment](#docker--nas-deployment)
+- [Contributing](#contributing)
+- [License](#license)
 
-## ⚙️ 设置与模式
-- 修改保存位置：在“设置”中选择新的保存文件夹，之后所有上传都会存到该位置
-- 传输模式
-  - 共享中心模式（默认）：远端可浏览主机已有内容
-  - 单向模式：远端只能上传、不能浏览（适合收作业/收素材）
-- 保留图片拍摄日期
-  - 可设置保存图片EXIF拍摄日期，如果EXIF日期被抹去，则仍然取上传日期
-- 分组权限
-  - 可设置允许其他设备创建分组
-- 登录/注册
-  - 首次可注册用户名和密码；登录后你的上传会标记为“你”，便于删除或改密
+## Features
 
-## 🔐 权限与安全
-- 仅本机可执行：修改配置、隐藏分组、打开目录、退出程序
-- 上传者或本机可执行：删除、设置/取消密码、移动文件分组
-- 给敏感文件设置密码；必要时配合“隐藏分组”使用
+- **Instant transfer** — Move files between your computer, phone, and other computers on the same Wi-Fi. No cables, no cloud relay.
+- **Text & link sharing** — Share snippets and URLs with optional password protection.
+- **Password protection** — Lock files and texts to keep sensitive content private.
+- **Organized groups** — Multi-level groups with fuzzy search and in-browser preview (images, audio, CSV, XLSX, DOCX, and more).
+- **QR code access** — Guests join by scanning a QR code or opening your address in a browser.
+- **Two transfer modes** — *Sharing hub* (guests can browse) or *one-way* (guests can only upload — great for collecting homework or assets).
+- **Private by design** — Everything stays on your LAN. No registration required.
+- **Cross-platform** — Windows, macOS, Linux, plus Docker and NAS deployment.
 
-## 🆘 常见问题
-- 对方打不开链接
-  - 检查是否在同一网络；换浏览器试试；主机稍等防火墙自动放行或手动允许
-- 上传很慢或失败
-  - 尽量在信号好的 Wi‑Fi；大文件建议有线连接；必要时分批上传
-- 手机不能在线预览某些格式
-  - 让手机先下载后用本地 App 打开；或在主机安装 Office/预览组件以改善在线预览
-- 忘记密码
-  - 只有主机或上传者能清除；请联系主机
-- 如何退出
-  - 关闭应用窗口即可；若在浏览器打开，关闭页面后主机仍在运行，回到主机窗口退出或在“设置/更多”里选择退出
+## Quick Start
 
-## 💡 小贴士
-- 用二维码让别人更快进入你的页面
-- 给重要文件加密码并放在“隐藏分组”（仅主机可见）
-- 设置常用保存文件夹，避免文件分散
-- 搜索支持模糊匹配，文件名记不清也能快速定位
+### Desktop App
 
----
-# QuickSend dockercompose
-```
-version: '3.8'
-services:
-  quicksend:
-    image: quicksend:v1.0.11   # 改成 docker load 输出的那个
-    container_name: quicksend
-    ports:
-      - "${HOST_PORT:-8000}:8000"
-    environment:
-      - HEADLESS=1
-      - PORT=8000
-      - QUICKSEND_NO_BROWSER=1
-    volumes:
-      - ./uploads:/app/uploads
-      - ./data:/app/QuickSend
-    restart: unless-stopped
-```
----
+1. Download the installer for your platform from [Releases](https://github.com/foodpm/QuickSend/releases).
+2. Run the installer and open QuickSend.
+3. Note the address and QR code shown in the window, then open it from any device on the same network.
 
-# QuickSend 离线导入 NAS Docker 教程
-
-本教程适用于 NAS（群晖/威联通/绿联等）、Linux 服务器或个人电脑，采用“离线镜像 + Compose”方式部署，无需拉取在线镜像。
-
-## 准备文件
-- 从 GitHub Releases 下载对应版本的镜像包，示例：`quicksend-image-v1.0.3.tar`
-- 代码仓库根目录的 `docker-compose.yml`（已默认使用本地镜像 `quicksend:local`）
-
-## 上传到 NAS
-- 在 NAS 上创建一个目录（例如 `/volume1/quicksend` 或任意共享目录）
-- 将镜像包 `.tar` 与 `docker-compose.yml` 一并上传到该目录
-
-## 导入镜像
-- SSH 登录 NAS 或在 NAS 终端中执行（进入上述目录后）：
+### Docker
 
 ```bash
-docker load -i quicksend-image-v1.0.3.tar
+docker run -d --name quicksend \
+  -p 8000:8000 \
+  -v ./uploads:/app/uploads \
+  -v ./data:/app/QuickSend \
+  -e HEADLESS=1 \
+  -e PORT=8000 \
+  -e QUICKSEND_NO_BROWSER=1 \
+  foodpm/quicksend:latest
 ```
 
-- 成功后会出现本地镜像标签：`quicksend:local`
+Then open `http://localhost:8000` (or your server/NAS IP) in a browser.
 
-## 启动服务
-- 在镜像与 compose 文件所在目录执行：
+### Run from Source
+
+Requires Python 3.8+.
 
 ```bash
-docker compose up -d
+cd quicksend/quicksend
+pip install -r requirements.txt
+python quicksend/app.py
 ```
 
-- 若提示命令不存在，可使用：
+## Usage Overview
 
-```bash
-docker-compose up -d
+- **Files** — Upload, download, preview, group, and password-protect files; share direct links or QR codes.
+- **Texts** — Create, copy, share, and delete text snippets with optional passwords.
+- **Groups & Search** — Organize content into multi-level groups; find anything with fuzzy search.
+- **Settings** — Change the save location, switch transfer modes, keep EXIF capture dates, and control group permissions.
+- **Accounts** — Optional sign-up lets the host identify uploaders and restrict delete/rename actions.
+
+> For detailed step-by-step instructions, see the [中文使用指南](quicksend/quicksend/使用说明书.md) or the [Chinese README](README.zh-CN.md).
+
+## Tech Stack
+
+| Layer | Tech |
+| --- | --- |
+| Backend | Python, Flask, Werkzeug |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Desktop | pywebview, PyInstaller |
+| Deployment | Docker (multi-arch amd64/arm64), NAS (Synology / QNAP / UGREEN) |
+| Analytics | Supabase Edge Functions |
+
+## Project Structure
+
+```
+.
+├── quicksend/                 # Main application
+│   └── quicksend/
+│       ├── app.py             # Flask backend
+│       ├── static/            # Frontend (React + Vite)
+│       ├── docs/              # Documentation
+│       ├── scripts/           # Build scripts
+│       ├── 使用说明书.md       # User guide (Chinese)
+│       └── start_quicksend.bat # Portable launcher (Windows)
+├── supabase/                  # Analytics functions & migrations
+├── docker-compose*.yml        # Docker deployment
+└── .github/workflows/         # CI/CD (build, Docker publish, Supabase deploy)
 ```
 
-## 访问应用
-- 浏览器访问：`http://NAS的IP:8000`
-- 如需修改端口，编辑 `docker-compose.yml` 的 `ports` 将 `"8000:8000"` 改为 `"8080:8000"` 等
+## Docker & NAS Deployment
 
-## 数据持久化与挂载
-- `./data` 映射至容器 `/app/QuickSend`，用于保存配置、metadata、用户信息与日志
-- `./uploads` 映射至容器 `/app/uploads`，用于保存上传的文件
-- 可直接在 NAS 的共享目录中查看与备份以上两个本地文件夹
+- Docker Hub image: [`foodpm/quicksend`](https://hub.docker.com/r/foodpm/quicksend)
+- One-click Compose: [docker-compose.yml](docker-compose.yml)
+- Configuration details: [DOCKER_CONFIG.md](DOCKER_CONFIG.md)
+- Offline NAS import (Synology / QNAP / UGREEN): [NAS 导入指南](quicksend/quicksend/docs/UGREEN_NAS_导入指南.md)
 
-## 常见问题
-- 启动报错 `exec format error`：镜像架构与设备不匹配，请确保下载的镜像 tar 与设备架构一致
-- 端口占用：修改 `docker-compose.yml` 的 `ports` 映射，换一个宿主机端口
-- 权限问题：命令前加 `sudo` 再试
+## Contributing
 
-## 目录结构建议
-- `quicksend/` 根目录（NAS 共享目录）
-  - `quicksend-image-vX.Y.Z.tar` 镜像文件
-  - `docker-compose.yml` 启动配置
-  - `data/` 应用数据（持久化）
-  - `uploads/` 上传文件（持久化）
+Contributions are welcome! Feel free to open an [issue](https://github.com/foodpm/QuickSend/issues) or submit a pull request.
 
-## 升级流程
-- 下载新版本镜像 tar（例如 `quicksend-image-v1.0.4.tar`）
-- 执行导入：`docker load -i quicksend-image-v1.0.4.tar`
-- 重启服务：`docker compose up -d`（若需要滚动重建，可先 `docker compose down` 再 `up -d`）
+## License
 
-
+This project does not specify an open-source license yet. Please contact the maintainer for usage or commercial inquiries.
