@@ -3435,7 +3435,7 @@ const App = () => {
           error={updateModal.error}
           items={updateModal.items}
           onUpdateNow={async () => {
-            const url = 'https://quicksend.chat/download';
+            const url = 'https://a2oliteneonai.net/download';
             try {
               if (desktopApp) {
                 await fetch('/api/open_url', {
@@ -3552,7 +3552,7 @@ const App = () => {
                 </li>
               </ul>
               <a
-                href="https://quicksend.chat"
+                href="https://a2oliteneonai.net"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 mt-3 text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors"
@@ -3763,7 +3763,7 @@ const App = () => {
                 </li>
               </ul>
               <a
-                href="https://quicksend.chat"
+                href="https://a2oliteneonai.net"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 mt-3 text-xs font-medium text-slate-700 hover:text-slate-900 transition-colors"
